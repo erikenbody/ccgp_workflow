@@ -3,6 +3,16 @@ import re
 import os
 
 ### INPUT FUNCTIONS ###
+def get_reads(wildcards):
+    checkpoint_output = checkpoints.get_fastq_pe.get(**wildcards).output[0]
+    fastq_dir = os.path.join(config["fastqDir"], wildcards.Organism, wildcards.sample, wildcards.run, "*.fastq")
+    fastq_files = glob.glob(fastq_dir)
+    print(fastq_dir, fastq_files)
+    if len(fastq_files) == 2:
+        return expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['fastqFilterDir'] + "{{sample}}/{{run}}/{{run}}_{num}.fastq.gz", num=[1,2])
+    else:
+        return config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}/{run}.fastq.gz"
+
 def get_read_group(wildcards):
     """Denote sample name and library_id in read group."""
     return r"-R '@RG\tID:{lib}\tSM:{sample}\tPL:ILLUMINA'".format(

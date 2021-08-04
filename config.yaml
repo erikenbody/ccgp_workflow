@@ -3,7 +3,7 @@
 ##############################
 
 samples: "samples.csv"         # name of the sample metadata CSV 
-tmp_dir: "/hb/scratch/cmirchan"
+tmp_dir: "tmp/"
 ##############################
 # Variables you *might* need to change
 ##############################

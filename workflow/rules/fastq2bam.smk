@@ -1,13 +1,15 @@
+import glob
+from os import path
 localrules: collect_sumstats, download_reference
 
 ruleorder: index_ref > download_reference
 ### RULES ###
-rule get_fastq_pe:
+checkpoint get_fastq_pe:
     output:
-        config["fastqDir"] + "{Organism}/{sample}/{run}_1.fastq",
-        config["fastqDir"] + "{Organism}/{sample}/{run}_2.fastq"
+        temp(directory(config["fastqDir"] + "{Organism}/{sample}/{run}"))
+        
     params:
-        outdir = config["fastqDir"] + "{Organism}/{sample}/",
+        outdir = config["fastqDir"] + "{Organism}/{sample}/{run}",
         tmpdir = config['tmp_dir']
     conda: "../envs/fastq2bam.yml"
     threads: int(res_config['get_fastq_pe']['threads'])
@@ -18,17 +20,6 @@ rule get_fastq_pe:
     shell:
         "fasterq-dump {wildcards.run} -O {params.outdir} -t {params.tmpdir} -e {threads} &> {log}"
 
-rule gzip_fastq:
-    input:
-        config["fastqDir"] + "{Organism}/{sample}/{run}_1.fastq",
-        config["fastqDir"] + "{Organism}/{sample}/{run}_2.fastq"
-    output:
-        temp(config["fastqDir"] + "{Organism}/{sample}/{run}_1.fastq.gz"),
-        temp(config["fastqDir"] + "{Organism}/{sample}/{run}_2.fastq.gz")
-    resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['gzip_fastq']['mem']
-    shell:
-        "gzip {input}"
 
 rule download_reference:
     output:
@@ -60,35 +51,50 @@ rule index_ref:
     shell:
         "bwa index {input.ref} 2> {log}"
 
-rule fastp:
+rule fastp_pe:
     input:
-        r1 = config["fastqDir"] + "{Organism}/{sample}/{run}_1.fastq.gz",
-        r2 = config["fastqDir"] + "{Organism}/{sample}/{run}_2.fastq.gz"
+        config["fastqDir"] + "{Organism}/{sample}/{run}"
     output: 
-        r1 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_1.fastq.gz",
-        r2 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_2.fastq.gz",
-        summ = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}/{run}.out"
+        r1 = temp(config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}/{run}_1.fastq.gz"),
+        r2 = temp(config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}/{run}_2.fastq.gz"),
+    params:
+        r1 = config["fastqDir"] + "{Organism}/{sample}/{run}/" + "{run}_1.fastq",
+        r2 = config["fastqDir"] + "{Organism}/{sample}/{run}/" + "{run}_2.fastq"
     conda:
         "../envs/fastq2bam.yml"
     threads: res_config['fastp']['threads']
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem'] 
     shell:
-        "fastp --in1 {input.r1} --in2 {input.r2} "
+        "fastp --in1 {params.r1} --in2 {params.r2} "
         "--out1 {output.r1} --out2 {output.r2} "
         "--thread {threads} "
-        "--detect_adapter_for_pe "
-        "2> {output.summ}"
+        "--detect_adapter_for_pe"
+rule fastp_se:
+    input:
+        config["fastqDir"] + "{Organism}/{sample}/{run}"
+    output: 
+        r1 = temp(config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}/{run}.fastq.gz"),
+    params:
+        r1 = config["fastqDir"] + "{Organism}/{sample}/{run}/" + "{run}.fastq",
+    conda:
+        "../envs/fastq2bam.yml"
+    threads: res_config['fastp']['threads']
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem'] 
+    shell:
+        "fastp --in1 {params.r1} "
+        "--out1 {output.r1} "
+        "--thread {threads} "
 
 rule bwa_map:
     input:
         ref = config["refGenomeDir"] + "{refGenome}.fna",
-        r1 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_1.fastq.gz",
-        r2 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_2.fastq.gz",
+        reads = get_reads,
         # the following files are bwa index files that aren't directly input into command below, but needed
         indexes = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"])
     output: 
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam"
+        bam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam")
     params:
         get_read_group
     conda:
@@ -97,13 +103,13 @@ rule bwa_map:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem'] 
     shell:
-        "bwa mem -M -t {threads} {params} {input.ref} {input.r1} {input.r2} | samtools sort -o {output.bam} -"
+        "bwa mem -M -t {threads} {params} {input.ref} {input.reads} | samtools sort -o {output.bam} -"
 
 rule merge_bams:
     input: lambda wildcards: expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
     output: 
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
-        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
+        bam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam"),
+        bai = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai")
 
     conda:
         "../envs/fastq2bam.yml"
