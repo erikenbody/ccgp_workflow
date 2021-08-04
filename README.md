@@ -7,7 +7,7 @@
 4. To execute workflow locally, `snakemake --use-conda --cores <cores to use> --ri -T 3 --batch all=<1/N>
     - I recommend using the `--batch all=1/N` command line option when dealing with many samples. N can be any number but should be large enough to make reasonable sized batches. Read more here: https://snakemake.readthedocs.io/en/stable/executing/cli.html#dealing-with-very-large-workflows
     - I also recommend using the `-n`to perform a dry run before executing the workflow.
-    - 
+  
 # Automated short-read mapping and variant calling
 
 ## Design
