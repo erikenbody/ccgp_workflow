@@ -1,3 +1,13 @@
+# How to run
+1. Download and setup snakemake conda env: https://snakemake.readthedocs.io/en/stable/getting_started/installation.html
+2. Ensure your sample sheet is a csv with the following fields `BioSample,LibraryName,refGenome,Run,Organism,BioProject`
+3. Specify the path of your sample sheet and temp directory in `config.yml`
+4. If you are on a SLURM cluster (eg Hummingbird), specify your compute partition in `profiles/slurm/cluster_config.yml`
+    -  To execute workflow on SLURM cluster use the run scripts in `run_scripts/`, remember to specify your partition there, too.
+4. To execute workflow locally, `snakemake --use-conda --cores <cores to use> --ri -T 3 --batch all=<1/N>
+    - I recommend using the `--batch all=1/N` command line option when dealing with many samples. N can be any number but should be large enough to make reasonable sized batches. Read more here: https://snakemake.readthedocs.io/en/stable/executing/cli.html#dealing-with-very-large-workflows
+    - I also recommend using the `-n`to perform a dry run before executing the workflow.
+    - 
 # Automated short-read mapping and variant calling
 
 ## Design
