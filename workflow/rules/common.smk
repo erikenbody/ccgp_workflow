@@ -8,11 +8,10 @@ def get_reads(wildcards):
     fastq_dir = os.path.join(config["fastqDir"], wildcards.Organism, wildcards.sample, wildcards.run, "*.fastq")
     fastq_files = glob.glob(fastq_dir)
     print(fastq_dir, fastq_files)
-    if len(fastq_files) == 2:
-        return expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['fastqFilterDir'] + "{{sample}}/{{run}}/{{run}}_{num}.fastq.gz", num=[1,2])
-    else:
+    if len(fastq_files) == 1:
         return config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}/{run}.fastq.gz"
-
+    else:
+        return expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['fastqFilterDir'] + "{{sample}}/{{run}}/{{run}}_{num}.fastq.gz", num=[1,2])
 def get_read_group(wildcards):
     """Denote sample name and library_id in read group."""
     return r"-R '@RG\tID:{lib}\tSM:{sample}\tPL:ILLUMINA'".format(
