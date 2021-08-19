@@ -13,12 +13,17 @@ checkpoint get_fastq_pe:
         tmpdir = config['tmp_dir']
     conda: "../envs/fastq2bam.yml"
     threads: int(res_config['get_fastq_pe']['threads'])
+    benchmark:
+        "benchmarks/{Organism}/fasterq_dump/{sample}/{run}.log"
     log:
         "logs/{Organism}/fasterq_dump/{sample}/{run}.log"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['get_fastq_pe']['mem']
     shell:
-        "fasterq-dump {wildcards.run} -O {params.outdir} -t {params.tmpdir} -e {threads} &> {log}"
+        # need to change exit code to catch if exit code is not 0. should just use ||. then use keep going snakemake option
+        """
+        fasterq-dump {wildcards.run} -O {params.outdir} -t {params.tmpdir} -e {threads} &> {log} || echo {wildcards.run} >> failed_srrs.txt
+        """
 
 
 rule download_reference:
@@ -97,6 +102,8 @@ rule bwa_map:
         bam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam")
     params:
         get_read_group
+    benchmark:
+        "benchmarks/{Organism}/{refGenome}/bwamap/{sample}/{run}.log"
     conda:
         "../envs/fastq2bam.yml"
     threads: res_config['bwa_map']['threads']

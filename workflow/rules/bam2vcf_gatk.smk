@@ -20,6 +20,8 @@ rule bam2gvcf:
         # subtract that memory here
         mem_mb = lambda wildcards, attempt: attempt * res_config['bam2gvcf']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['bam2gvcf']['mem'] - 3000)  # this is the maximum amount given to java
+    benchmark:
+        "benchmarks/{Organism}/{refGenome}/gvcf/{sample}_{list}.txt"
     params:
         minPrun = config['minP'],
         minDang = config['minD']
