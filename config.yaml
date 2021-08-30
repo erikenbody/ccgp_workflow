@@ -2,8 +2,10 @@
 # Variables you need to change
 ##############################
 
-samples: "samples.csv"         # name of the sample metadata CSV 
+samples: "Mt_africanum2.csv"         # name of the sample metadata CSV 
 tmp_dir: "tmp/"
+ploidy: 1
+split_by_n: False
 ##############################
 # Variables you *might* need to change
 ##############################

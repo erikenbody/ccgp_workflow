@@ -24,7 +24,8 @@ rule bam2gvcf:
         "benchmarks/{Organism}/{refGenome}/gvcf/{sample}_{list}.txt"
     params:
         minPrun = config['minP'],
-        minDang = config['minD']
+        minDang = config['minD'],
+        ploidy = config['ploidy']
     conda:
         "../envs/bam2vcf.yml"
     shell:
@@ -34,6 +35,7 @@ rule bam2gvcf:
         "-I {input.bam} "
         "-O {output.gvcf} "
         "-L {input.l} "
+        "--ploidy {params.ploidy}"
         "--emit-ref-confidence GVCF --min-pruning {params.minPrun} --min-dangling-branch-length {params.minDang}"
 
 rule mkDBmapfile:
@@ -68,6 +70,7 @@ rule gvcf2DB:
     resources: 
         mem_mb = lambda wildcards, attempt: attempt * res_config['gvcf2DB']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['gvcf2DB']['mem'] - 3000)  # this is the maximum amount given to java
+    log: "logs/" "{Organism}/{refGenome}/" + "gvcf2DB" + "DB_L{list}"
     conda:
         "../envs/bam2vcf.yml"
     shell:
@@ -79,7 +82,7 @@ rule gvcf2DB:
         "--genomicsdb-workspace-path {output.DB} "
         "-L {input.l} "
         "--tmp-dir {params.tmp_dir} "
-        "--sample-name-map {input.dbMapFile} \n"
+        "--sample-name-map {input.dbMapFile} &> {log}"
 
 rule DB2vcf:
     """

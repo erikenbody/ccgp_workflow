@@ -21,7 +21,7 @@ ORGANISM, REFGENOME = map(list, zip(*org_ref))  # Split above back to indiviudal
 rule all:
     input:
         expand(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed", zip, Organism=ORGANISM, refGenome=REFGENOME)
-
+include: "rules/common.smk"
 include: "rules/intervals.smk"
 
 
