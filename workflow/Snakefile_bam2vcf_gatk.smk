@@ -5,8 +5,8 @@ import yaml
 import helperFun
 import pandas as pd
 import glob
-configfile: "config.yaml"
-res_config = yaml.load(open("resources.yaml"))
+configfile: "config/config.yaml"
+res_config = yaml.load(open("config/resources.yaml"))
 
 bams = glob.glob("results/*/*/01_mappedReads/*.bam")
 good_bams = [os.path.basename(bam).split("_final")[0] for bam in bams]
