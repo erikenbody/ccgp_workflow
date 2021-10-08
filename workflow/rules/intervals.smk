@@ -16,12 +16,12 @@ rule picard_intervals:
     shell:
         "picard ScatterIntervalsByNs REFERENCE={input.ref} OUTPUT={output.intervals} MAX_TO_MERGE={params.minNmer} &> {log}\n" 
 
-checkpoint create_intervals:
+rule create_intervals:
     input:
         fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
-        intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_output.interval_list"
+        intervals = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_output.interval_list")
     params:
         maxIntervalLen = int(config['maxIntervalLen']),
         maxBpPerList = int(config['maxBpPerList']),

@@ -9,8 +9,10 @@ rule bam2gvcf:
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + config['bam_suffix'],
-        int = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"
+        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam",
+        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + '_final.bai',
+        int = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"),
+        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list",
     output:
         gvcf = config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz",
         gvcf_idx = config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz.tbi",
@@ -27,7 +29,7 @@ rule bam2gvcf:
     params:
         minPrun = config['minP'],
         minDang = config['minD'],
-        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list"
+        l = GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list"
     conda:
         "../envs/bam2vcf.yml"
     shell:
@@ -48,7 +50,7 @@ rule mkDBmapfile:
     input:
         # NOTE: the double curly brackets around 'list' prevent the expand function from operating on that variable
         # thus, we expand by sample but not by list, such that we gather by sample for each list value
-        unpack(get_input_for_mapfile)
+        get_input_for_mapfile
     output:
         dbMapFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_mapfile_L{list}"
     run:

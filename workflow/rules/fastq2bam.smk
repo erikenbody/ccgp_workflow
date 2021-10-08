@@ -1,5 +1,5 @@
-localrules: collect_sumstats, download_reference
-ruleorder: index_ref > download_reference
+localrules: collect_sumstats, download_reference, collect_fastp_stats
+ruleorder: index_ref > download_reference > merge_bams > dedup
 ### RULES ###
 
 rule get_fastq_pe:
@@ -80,6 +80,8 @@ rule fastp:
         res_config['fastp']['threads']
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem']
+    group:
+        "mapping"
     log:
         "logs/{Organism}/fastp/{refGenome}_{sample}_{run}.txt"
     shell:
@@ -103,6 +105,8 @@ rule bwa_map:
         "../envs/fastq2bam.yml"
     threads: 
         res_config['bwa_map']['threads']
+    group:
+        "mapping"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem']
     log:
@@ -117,8 +121,8 @@ rule merge_bams:
         lambda wildcards: 
         expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
     output: 
-        bam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam"),
-        bai = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai")
+        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
+        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
     conda:
         "../envs/fastq2bam.yml"
     resources:
@@ -131,7 +135,8 @@ rule dedup:
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
         bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
     output:
-        dedupBam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + config['bam_suffix'],
+        dedupBam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam",
+        dedupBai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bai",
         dedupMet = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_dedupMetrics.txt"
     conda:
         "../envs/fastq2bam.yml"
@@ -147,7 +152,7 @@ rule dedup:
 
 rule bam_sumstats:
     input: 
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + config['bam_suffix'],
+        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam",
         ref = config["refGenomeDir"] + "{refGenome}.fna"
     output: 
         cov = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_coverage.txt",  

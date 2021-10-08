@@ -4,16 +4,19 @@ import os
 from collections import defaultdict, deque
 from snakemake.exceptions import WorkflowError
 ### INPUT FUNCTIONS ###
+
+
 def get_reads(wildcards):
     """Returns local read files if present. Defaults to SRR if no local reads in sample sheet."""
     row = samples.loc[samples['Run'] == wildcards.run]
     if 'fq1' in samples.columns and 'fq2' in samples.columns:
-        if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
-            r1 = row.fq1.item()
-            r2 = row.fq2.item()
-            return {"r1": r1, "r2": r2}
-        else:
-            raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
+        #if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
+        r1 = row.fq1.item()
+        r2 = row.fq2.item()
+        return {"r1": r1, "r2": r2}
+    #    else:
+    #        print(row.fq1.item(), row.fq2.item())
+    #        raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
     else:
         r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_1.fastq.gz",
         r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_2.fastq.gz"
@@ -39,7 +42,7 @@ def get_gather_vcfs(wildcards):
     """
     Gets filtered vcfs for gathering step. This function gets the interval list indicies from the corresponding
     genome, then produces the file names for the filtered vcf with list index."""
-    checkpoint_output = checkpoints.create_intervals.get(**wildcards).output[0]
+    #checkpoint_output = checkpoints.create_intervals.get(**wildcards).output[0]
     list_dir_search = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
     list_files = glob.glob(list_dir_search)
     out = []
@@ -72,8 +75,8 @@ def get_input_for_mapfile(wildcards):
     gvcfs = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['gvcfDir'] + "{sample}/" + "L{{list}}.raw.g.vcf.gz", sample=sample_names, **wildcards)
     gvcfs_idx = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['gvcfDir'] + "{sample}/" + "L{{list}}.raw.g.vcf.gz.tbi", sample=sample_names, **wildcards)
     doneFiles = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['gvcfDir'] + "{sample}/" + "L{{list}}.done", sample=sample_names, **wildcards)
-    
-    return {'gvcfs': gvcfs, 'gvcfs_idx': gvcfs_idx, 'doneFiles': doneFiles}
+    return doneFiles
+    #return {'gvcfs': gvcfs, 'gvcfs_idx': gvcfs_idx, 'doneFiles': doneFiles}
 
 def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
     """Creates interval list files for parallelizing haplotypeCaller and friends. Writes one contig/chromosome per list file."""

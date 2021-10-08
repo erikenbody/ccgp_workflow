@@ -12,25 +12,25 @@ gzip_fastq:
 # fastp program
 fastp: 
     threads: 10 
-    mem: 5000
+    mem: 2500
 # index reference
 index_ref:
     mem: 10000
 # bwa mapping
 bwa_map: 
     threads: 10 
-    mem: 15000
+    mem: 2500
 # sort bam with picard's SortSam tool
 sort_bam: 
-    mem: 25000 
+    mem: 2500 
 # mark duplicates with picard's MarkDuplicates
-dedup: 
-    mem: 9000 
+dedup:
+    mem: 5000 
 # calculate BAM summaries with samtools and picard
 bam_sumstats: 
-    mem: 9000 
+    mem: 2500 
 merge_bams:
-    mem: 9000
+    mem: 2500
 
 ###
 # Intervals workflow
@@ -50,31 +50,31 @@ create_intervals:
 
 # gatk HaplotypeCaller
 bam2gvcf: 
-    mem: 30000
+    mem: 20000
 # gatk GenomicsDBImport
 gvcf2DB:
-    mem: 30000
+    mem: 20000
 # gatk GenotypeGVCFs 
 DB2vcf: 
-    mem: 30000
+    mem: 20000
 ## freebayes program only! ##
 bam2vcf:
-    mem: 30000
+    mem: 20000
 # gatk filterVcfs
 filterVcfs:
-    mem: 30000
+    mem: 20000
 # gatk GatherVcfs
 gatherVcfs:
-    mem: 30000
+    mem: 20000
 # picard SortVcf
 sortVcf:
-    mem: 30000
+    mem: 20000
 # vcftools program
 vcftools:
-    mem: 30000
+    mem: 20000
 # bedtools program
 bedtools:
-    mem: 30000
+    mem: 20000
 # plink
 plink:
     threads: 5

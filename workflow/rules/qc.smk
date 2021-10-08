@@ -6,7 +6,7 @@ rule snp_filters_qc:
     conda:
         "../envs/qc.yml"
     params:
-        prefix=config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}"
+        prefix= GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}"
     shell:
         "bcftools query -f '%CHROM\t%POS\t%ID\t%INFO/AF\t%QUAL\t%INFO/ReadPosRankSum\t%INFO/FS\t%INFO/SOR\t%INFO/MQ\t%INFO/MQRankSum\n' {input.vcf} > {output.snpqc}"
 
@@ -20,7 +20,7 @@ rule vcftools_individuals:
     conda:
         "../envs/qc.yml"
     params:
-        prefix=config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}"
+        prefix= GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}"
     shell:
         """
         vcftools --gzvcf {input.vcf} --FILTER-summary --out {params.prefix}
@@ -65,7 +65,7 @@ rule plink:
         vcf = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}.pruned.vcf.gz"
         
     params:
-        prefix=config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}",
+        prefix= GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}",
         threads = res_config['plink']['threads']
     output: 
         bed = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}.bed",
@@ -92,8 +92,8 @@ rule admixture:
     output:
         admix = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}.3.Q"
     params:
-        tmpbim = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}",
-        outdir = config['output'] + "{Organism}/{refGenome}/" + config['qcDir']
+        tmpbim = GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}",
+        outdir = GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['qcDir']
 
     conda:
         "../envs/qc.yml"
@@ -119,7 +119,7 @@ rule qc_plots:
         admix = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}.3.Q",
         snpqc = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}_snpqc.txt",
     params:
-        prefix = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}"
+        prefix = GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}"
     output: 
         qcpdf = config['output'] + "{Organism}/{refGenome}/" + config['qcDir'] + "{Organism}_{refGenome}_qc.html"
     resources:
