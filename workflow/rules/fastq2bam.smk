@@ -4,6 +4,7 @@ localrules: collect_sumstats, download_reference
 
 ruleorder: index_ref > download_reference
 ### RULES ###
+
 checkpoint get_fastq_pe:
     output:
         temp(directory(config["fastqDir"] + "{Organism}/{sample}/{run}"))
@@ -22,7 +23,7 @@ checkpoint get_fastq_pe:
     shell:
         # need to change exit code to catch if exit code is not 0. should just use ||. then use keep going snakemake option
         """
-        fasterq-dump {wildcards.run} -O {params.outdir} -t {params.tmpdir} -e {threads} &> {log} || echo {wildcards.run} >> failed_srrs.txt
+        fasterq-dump {wildcards.run} -O {params.outdir} -t {params.tmpdir} -e {threads} &> {log}
         """
 
 
@@ -109,8 +110,12 @@ rule bwa_map:
     threads: res_config['bwa_map']['threads']
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem'] 
+    log:
+        "logs/{Organism}/bwa/{refGenome}_{sample}_{run}.txt"
+    benchmark:
+        "benchmarks/{Organism}/bwa/{refGenome}_{sample}_{run}.txt"
     shell:
-        "bwa mem -M -t {threads} {params} {input.ref} {input.reads} | samtools sort -o {output.bam} -"
+        "bwa mem -M -t {threads} {params} {input.ref} {input.reads} 2> {log} | samtools sort -o {output.bam} -"
 
 rule merge_bams:
     input: lambda wildcards: expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
@@ -130,53 +135,16 @@ rule dedup:
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
         bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
     output:
-        dedupBam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + config['bam_suffix'],
-        dedupMet = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_dedupMetrics.txt"
+        dedupBam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + config['bam_suffix']),
+        dedupMet = temp(config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_dedupMetrics.txt")
     conda:
         "../envs/fastq2bam.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['dedup']['mem'] 
+    log:
+        "logs/{Organism}/dedup/{refGenome}_{sample}.txt"
+    benchmark:
+        "benchmarks/{Organism}/dedup/{refGenome}_{sample}.txt"
     shell:
-        "picard MarkDuplicates I={input[0]} O={output.dedupBam} METRICS_FILE={output.dedupMet} REMOVE_DUPLICATES=false TAGGING_POLICY=All\n"
-        "picard BuildBamIndex I={output.dedupBam} "
-
-rule bam_sumstats:
-    input: 
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + config['bam_suffix'],
-        ref = config["refGenomeDir"] + "{refGenome}.fna"
-
-    output: 
-        cov = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_coverage.txt",  
-        alnSum = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_AlnSumMets.txt",
-        val = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_validate.txt"
-    conda:
-        "../envs/fastq2bam.yml"
-    resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['bam_sumstats']['mem'] 
-    shell:
-        "samtools coverage --output {output.cov} {input.bam}\n"
-        "picard CollectAlignmentSummaryMetrics I={input.bam} R={input.ref} O={output.alnSum}\n"
-        # The following ValidateSamFile exits with non-zero status when a BAM file contains errors, 
-        # causing snakemake to exit and remove these output files.  I cirumvent this by appending "|| true".
-        # I also ignore "INVALID_TAG_NM" because it isn't used by GATK but causes errors at this step
-        "picard ValidateSamFile I={input.bam} R={input.ref} O={output.val} IGNORE=INVALID_TAG_NM || true"
-rule collect_fastp_stats:
-    input: lambda wildcards:
-            expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['sumstatDir'] + "{{sample}}/{run}.out", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
-    output: config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_fastp.out"
-    shell:
-        "cat {input} > {output}"
-rule collect_sumstats:
-    input:
-        unpack(get_sumstats)
-    output:
-        config['output'] + "{Organism}/{refGenome}/" + "bam_sumstats.txt"
-    run:
-        FractionReadsPassFilter, NumFilteredReads = helperFun.collectFastpOutput(input.fastpFiles)
-        PercentDuplicates = helperFun.collectDedupMetrics(input.dedupFiles)
-        PercentHQreads, PercentHQbases = helperFun.collectAlnSumMets(input.alnSumMetsFiles)
-        SeqDepths, CoveredBases = helperFun.collectCoverageMetrics(input.coverageFiles)
-        validateSams = helperFun.collectValidationStatus(input.validateFiles)
-
-        helperFun.printBamSumStats(FractionReadsPassFilter, NumFilteredReads, PercentDuplicates, PercentHQreads, PercentHQbases, SeqDepths, CoveredBases, validateSams, config["output"], wildcards)
-
+        "picard MarkDuplicates I={input[0]} O={output.dedupBam} METRICS_FILE={output.dedupMet} REMOVE_DUPLICATES=false TAGGING_POLICY=All &> {log}\n"
+        "picard BuildBamIndex I={output.dedupBam} &> {log}"

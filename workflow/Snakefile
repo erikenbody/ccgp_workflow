@@ -2,7 +2,7 @@ import pandas as pd
 import yaml
 import helperFun
 
-configfile: "config.yaml"
+configfile: "config2.yaml"
 res_config = yaml.load(open("resources.yaml"))
 
 samples = pd.read_table(config["samples"], sep=",").replace(' ', '_', regex=True)
