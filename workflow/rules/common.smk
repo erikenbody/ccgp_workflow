@@ -4,7 +4,12 @@ import os
 from collections import defaultdict, deque
 from snakemake.exceptions import WorkflowError
 ### INPUT FUNCTIONS ###
-
+def get_bams(wildcards):
+    runs = samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist()
+    if len(runs) == 1:
+        return "non-existing-filename"  # this is a hack to coerce snakemake to not execute the rule this feeds if there is only one bam file
+    else:
+        return expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=runs)
 
 def get_reads(wildcards):
     """Returns local read files if present. Defaults to SRR if no local reads in sample sheet."""
@@ -42,7 +47,7 @@ def get_gather_vcfs(wildcards):
     """
     Gets filtered vcfs for gathering step. This function gets the interval list indicies from the corresponding
     genome, then produces the file names for the filtered vcf with list index."""
-    #checkpoint_output = checkpoints.create_intervals.get(**wildcards).output[0]
+    checkpoint_output = checkpoints.create_intervals.get(**wildcards).output[0]
     list_dir_search = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
     list_files = glob.glob(list_dir_search)
     out = []

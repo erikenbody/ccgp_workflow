@@ -29,7 +29,7 @@ rule bam2gvcf:
     params:
         minPrun = config['minP'],
         minDang = config['minD'],
-        l = GS_PREFIX + config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list"
+        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list"
     conda:
         "../envs/bam2vcf.yml"
     shell:
@@ -154,7 +154,8 @@ rule filterVcfs:
 
 rule sort_gatherVcfs:
     input: 
-        get_gather_vcfs
+        get_gather_vcfs,
+        int = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"),
     output: 
         vcfFinal = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}.final.vcf.gz"
     params:

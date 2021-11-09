@@ -2,13 +2,10 @@ import pandas as pd
 import yaml
 import helperFun
 
-from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
-GS = GSRemoteProvider()
-GS_PREFIX = "ccgp_test"
 
 #containerized: "docker://cademirch/snakemake_test:latest"
 configfile: "config/config.yaml"
-res_config = yaml.load(open("config/resources.yaml"))
+res_config = yaml.safe_load(open("config/resources.yaml"))
 
 helperFun.make_temp_dir()
 samples = pd.read_table(config["samples"], sep=",", dtype=str).replace(' ', '_', regex=True)
@@ -21,6 +18,6 @@ rule all:
 
 include: "rules/common.smk"	
 include: "rules/fastq2bam.smk"
-#include: "rules/intervals.smk"
+include: "rules/intervals.smk"
 include: "rules/bam2vcf_gatk.smk"
 include: "rules/qc.smk"

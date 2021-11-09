@@ -1,5 +1,5 @@
 localrules: collect_sumstats, download_reference, collect_fastp_stats
-ruleorder: index_ref > download_reference > merge_bams > dedup
+ruleorder: index_ref > download_reference > dedup > merge_bams > rename_bam
 ### RULES ###
 
 rule get_fastq_pe:
@@ -118,8 +118,7 @@ rule bwa_map:
 
 rule merge_bams:
     input: 
-        lambda wildcards: 
-        expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
+        get_bams
     output: 
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
         bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
@@ -130,6 +129,21 @@ rule merge_bams:
     shell:
         "samtools merge {output.bam} {input} && samtools index {output.bam}"
 
+rule rename_bam:
+    """Renames run.bam to sample.bam if there is only 1 run for that sample. Allows skipping of merge_bams if no merge is needed, 
+    which saves time. """
+    input:
+        bam = lambda wildcards: expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
+    output:
+        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
+        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
+    conda:
+        "../envs/fastq2bam.yml"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * res_config['merge_bams']['mem']
+    shell:
+        "mv {input.bam} {output.bam}"
+        "samtools index {output.bam}"
 rule dedup:
     input: 
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
