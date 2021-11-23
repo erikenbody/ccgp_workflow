@@ -81,7 +81,6 @@ rule fastp:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem'],
         machine_type = "e2-highcpu-16"
-    
     log:
         "logs/{Organism}/fastp/{refGenome}_{sample}_{run}.txt"
     shell:
@@ -105,7 +104,6 @@ rule bwa_map:
         "../envs/gcp_mapping.yml"
     threads: 
         res_config['bwa_map']['threads']
-    
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem'],
         machine_type = "e2-highcpu-16"
@@ -124,7 +122,6 @@ rule merge_bams:
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
     conda:
         "../envs/gcp_mapping.yml"
-    
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['merge_bams']['mem'],
         machine_type = "e2-highcpu-16"
@@ -142,8 +139,6 @@ rule dedup:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['dedup']['mem'],
         machine_type = "e2-highcpu-16"
-    group:
-        "mapping"
     threads:
         res_config['dedup']['threads']
     log:
