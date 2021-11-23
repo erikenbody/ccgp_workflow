@@ -1,10 +1,19 @@
 import glob
 import re
 import os
+from pathlib import Path
 from collections import defaultdict, deque
 from snakemake.exceptions import WorkflowError
 ### INPUT FUNCTIONS ###
-def get_bams(wildcards):
+
+def get_bams_for_dedup(wildcards):
+    runs = samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist()
+    if len(runs) == 1:
+        return expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=runs)
+    else:
+        return config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam"
+
+def get_bams_for_merge(wildcards):
     runs = samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist()
     if len(runs) == 1:
         return "non-existing-filename"  # this is a hack to coerce snakemake to not execute the rule this feeds if there is only one bam file
@@ -47,32 +56,31 @@ def get_gather_vcfs(wildcards):
     """
     Gets filtered vcfs for gathering step. This function gets the interval list indicies from the corresponding
     genome, then produces the file names for the filtered vcf with list index."""
-    checkpoint_output = checkpoints.create_intervals.get(**wildcards).output[0]
-    list_dir_search = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
-    list_files = glob.glob(list_dir_search)
-    out = []
-    for f in list_files:
-        f = os.path.basename(f)
-        index = re.search("\d+", f).group() # Grab digits from list file name and put in out list
-        vcf = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['vcfDir_gatk'], f"filtered_L{index}.vcf")
-        out.append(vcf)
-
-    return out
+    
+    #checkpoint_output = checkpoints.create_intervals.get(**wildcards).output[0]
+    
+    
+    path = Path(workflow.default_remote_prefix, config['output'], wildcards.Organism,wildcards.refGenome, config['intDir'], "lists/")
+    print(path)
+    lists = range(len(list(path.glob("*.list"))))
+    return expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['vcfDir_gatk'] + "filtered_L{index}.vcf", index=lists)
 
 def gather_vcfs_CLI(wildcards):
     """
     Gatk enforces that you have a -I before each input vcf, so this function makes that string
     """
-    vcfs = get_gather_vcfs(wildcards)
+    vcfs = expand(config['output'] + "{Organism}/{refGenome}/" + config['vcfDir_gatk'] + "filtered_L{index}.vcf", **wildcards, index=range(10))
+    #print(vcfs)
+    
     out = " ".join(["-I " + vcf for vcf in vcfs])
     return out
 
-def write_db_mapfile(wildcards):
-    dbMapFile = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['dbDir'], f"DB_mapfile_L{wildcards.list}")
+def write_db_mapfile(wildcards, output):
+    dbMapFile = output.dbMapFile
     sample_names = set(samples.loc[(samples['Organism'] == wildcards.Organism) & (samples['refGenome'] == wildcards.refGenome)]['BioSample'].tolist())
     with open(dbMapFile, 'w') as f:
         for sample in sample_names:
-            gvcf_path = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['gvcfDir'], sample, f"L{wildcards.list}.raw.g.vcf.gz") 
+            gvcf_path = os.path.join(workflow.default_remote_prefix,config['output'], wildcards.Organism, wildcards.refGenome, config['gvcfDir'], sample, f"L{wildcards.list}.raw.g.vcf.gz") 
             print(sample, gvcf_path, sep="\t", file=f)
 
 def get_input_for_mapfile(wildcards):
@@ -83,9 +91,8 @@ def get_input_for_mapfile(wildcards):
     return doneFiles
     #return {'gvcfs': gvcfs, 'gvcfs_idx': gvcfs_idx, 'doneFiles': doneFiles}
 
-def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
+def make_intervals(output, outputDir, intDir, wildcards, dict_file, max_intervals):
     """Creates interval list files for parallelizing haplotypeCaller and friends. Writes one contig/chromosome per list file."""
-    
     with open(dict_file, "r") as f:  # Read dict file to get contig info
         contigs = defaultdict()
         for line in f:
@@ -95,17 +102,33 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                 ln = int(line[2].split("LN:")[1])
                 contigs[chrom] = ln
         
-        interval_file = os.path.join(outputDir,wildcards.Organism,wildcards.refGenome,intDir, f"{wildcards.refGenome}_intervals_fb.bed")
+        interval_file = output[0]
+        
         with open(interval_file, "w") as fh:
             for contig, ln in contigs.items():
                 print(f"{contig}\t1\t{ln}", file=fh)
-        
-        if len(contigs.values()) <= max_intervals:
-            for i, (contig, ln) in enumerate(contigs.items()):
-                interval_list_file = os.path.join(outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
-                with open(interval_list_file, "w") as f:
-                    print(f"{contig}:1-{ln}", file=f)
+        small_contigs = []
+        not_small_contigs = []
+        for i, (contig, ln) in enumerate(contigs.items()):
+            if ln <= 500000:
                 
+                small_contigs.append((contig, ln))
+            else:
+                
+                not_small_contigs.append((contig, ln))
+        
+        interval_list_file = Path(output.l, f"list0.list")
+        with open(interval_list_file, "w") as fh:
+            for contig, ln in small_contigs:
+                print(f"{contig}:1-{ln}", file=fh)
+
+        for i, (contig, ln) in enumerate(not_small_contigs):
+            interval_list_file = Path(output.l, f"list{i+1}.list")
+            with open(interval_list_file, "w") as fh:
+                print(f"{contig}:1-{ln}", file=fh)
+    
+        '''
+        This is the old code that was used to create the interval list files, with some max number of intervals desired. This will not be used for CCGP workflow.        
         else:
             ln_sum = sum(contigs.values())
             bp_per_interval = ln_sum // int(max_intervals)
@@ -117,7 +140,7 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                 out.append(f"{chrom}:1-{ln}")
                 running_bp_total += ln
                 if running_bp_total >= bp_per_interval:
-                    interval_file = os.path.join(outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{int_file}.list")
+                    interval_file = Path(output.l, f"list{int_file}.list")
                     with open(interval_file, "a+") as f:
                         for _ in range(len(out)):
                             line = out.popleft()
@@ -125,8 +148,10 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                     int_file += 1
                     running_bp_total = 0
             if out:
-                interval_file = os.path.join(outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{int_file}.list")
+                interval_file = Path(output.l, f"list{int_file}.list")
                 with open(interval_file, "a+") as f:
                     for _ in range(len(out)):
                         line = out.popleft()
                         print(line, file=f)
+                int_file += 1
+        '''

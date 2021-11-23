@@ -7,12 +7,12 @@ rule bam2gvcf:
     """
     input:
         ref = config["refGenomeDir"] + "{refGenome}.fna",
-        fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
-        dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
+        fai = ancient(config["refGenomeDir"] + "{refGenome}.fna" + ".fai"),
+        dictf = ancient(config["refGenomeDir"] + "{refGenome}" + ".dict"),
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam",
-        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + '_final.bai',
+        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + '_final.bam.bai',
         int = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"),
-        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list",
+        l = ancient(config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/" + "list{list}.list"),
     output:
         gvcf = config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz",
         gvcf_idx = config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz.tbi",
@@ -21,24 +21,25 @@ rule bam2gvcf:
         #!The -Xmx value the tool is run with should be less than the total amount of physical memory available by at least a few GB
         # subtract that memory here
         mem_mb = lambda wildcards, attempt: attempt * res_config['bam2gvcf']['mem'],   # this is the overall memory requested
-        reduced = lambda wildcards, attempt: attempt * (res_config['bam2gvcf']['mem'] - 3000)  # this is the maximum amount given to java
+        reduced = lambda wildcards, attempt: attempt * (res_config['bam2gvcf']['mem'] - 512),  # this is the maximum amount given to java
+        machine_type = "e2-custom-4-10240"
     log:
         "logs/{Organism}/bam2gvcf/{refGenome}_{sample}_{list}.txt"
-    benchmark:
-        "benchmarks/{Organism}/bam2gvcf/{refGenome}_{sample}_{list}.txt"
+    #benchmark:
+        #"benchmarks/{Organism}/bam2gvcf/{refGenome}_{sample}_{list}.txt"
     params:
         minPrun = config['minP'],
         minDang = config['minD'],
-        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list"
+        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/" + "list{list}.list"
     conda:
-        "../envs/bam2vcf.yml"
+        "../envs/gcp_calling.yml"
     shell:
         "gatk HaplotypeCaller "
-        "--java-options \"-Xmx{resources.reduced}m\" "
+        "--java-options \"-Xmx{resources.mem_mb}m\" "
         "-R {input.ref} "
         "-I {input.bam} "
         "-O {output.gvcf} "
-        "-L {params.l} "
+        "-L {input.l} "
         "--emit-ref-confidence GVCF --min-pruning {params.minPrun} --min-dangling-branch-length {params.minDang} &> {log}"
 
 rule mkDBmapfile:
@@ -54,7 +55,7 @@ rule mkDBmapfile:
     output:
         dbMapFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_mapfile_L{list}"
     run:
-        write_db_mapfile(wildcards)
+        write_db_mapfile(wildcards, output)
 
 rule gvcf2DB:
     """
@@ -63,7 +64,7 @@ rule gvcf2DB:
     Samples are thus gathered by a shared list name, but lists are still scattered.
     """
     input:
-        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "list{list}.list",
+        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/" + "list{list}.list",
         dbMapFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_mapfile_L{list}"
     output:
         DB = directory(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}"),
@@ -72,19 +73,19 @@ rule gvcf2DB:
         tmp_dir = config['tmp_dir']
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['gvcf2DB']['mem'],   # this is the overall memory requested
-        reduced = lambda wildcards, attempt: attempt * (res_config['gvcf2DB']['mem'] - 3000)  # this is the maximum amount given to java
+        reduced = lambda wildcards, attempt: attempt * (res_config['gvcf2DB']['mem'] - 512)  # this is the maximum amount given to java
     log:
         "logs/{Organism}/gvcf2DB/{refGenome}_{list}.txt"
     benchmark:
         "benchmarks/{Organism}/gvcf2DB/{refGenome}_{list}.txt"
     conda:
-        "../envs/bam2vcf.yml"
+        "../envs/gcp_calling.yml"
     shell:
         # NOTE: reader-threads > 1 useless if you specify multiple intervals
         # a forum suggested TILEDB_DISABLE_FILE_LOCKING=1 to remedy sluggish performance
         "export TILEDB_DISABLE_FILE_LOCKING=1 \n"
         "gatk GenomicsDBImport "
-        "--java-options \"-Xmx{resources.reduced}m -Xms{resources.reduced}m\" "
+        "--java-options \"-Xmx{resources.mem_mb}m -Xms{resources.mem_mb}m\" "
         "--genomicsdb-workspace-path {output.DB} "
         "-L {input.l} "
         "--tmp-dir {params.tmp_dir} "
@@ -105,16 +106,16 @@ rule DB2vcf:
         tmp_dir = config['tmp_dir']
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['DB2vcf']['mem'],   # this is the overall memory requested
-        reduced = lambda wildcards, attempt: attempt * (res_config['DB2vcf']['mem'] - 3000)  # this is the maximum amount given to java
+        reduced = lambda wildcards, attempt: attempt * (res_config['DB2vcf']['mem'] - 512)  # this is the maximum amount given to java
     log:
         "logs/{Organism}/db2vcf/{refGenome}_{list}.txt"
     benchmark:
         "benchmarks/{Organism}/db2vcf/{refGenome}_{list}.txt"
     conda:
-        "../envs/bam2vcf.yml"
+        "../envs/gcp_calling.yml"
     shell:
         "gatk GenotypeGVCFs "
-        "--java-options \"-Xmx{resources.reduced}m -Xms{resources.reduced}m\" "
+        "--java-options \"-Xmx{resources.mem_mb}m -Xms{resources.mem_mb}m\" "
         "-R {input.ref} "
         "-V gendb://{input.DB} "
         "-O {output} "
@@ -130,7 +131,7 @@ rule filterVcfs:
     output:
         vcf = temp(config['output'] + "{Organism}/{refGenome}/" + config["vcfDir_gatk"] + "filtered_L{list}.vcf")
     conda:
-        "../envs/bam2vcf.yml"
+        "../envs/gcp_calling.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['filterVcfs']['mem']   # this is the overall memory requested
     log:
@@ -154,14 +155,16 @@ rule filterVcfs:
 
 rule sort_gatherVcfs:
     input: 
-        get_gather_vcfs,
+        vcfs = get_gather_vcfs,
         int = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"),
+        #l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/"
+        
     output: 
         vcfFinal = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}.final.vcf.gz"
     params:
         gather_vcfs_CLI
     conda:
-        "../envs/bam2vcf.yml"
+        "../envs/gcp_calling.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['gatherVcfs']['mem']
     log:

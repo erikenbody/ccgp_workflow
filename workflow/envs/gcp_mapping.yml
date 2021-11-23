@@ -1,0 +1,9 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - fastp
+  - bwa
+  - samtools>=1.12
+  - sambamba>=0.8

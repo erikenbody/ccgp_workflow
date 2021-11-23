@@ -1,5 +1,5 @@
 localrules: collect_sumstats, download_reference, collect_fastp_stats
-ruleorder: index_ref > download_reference > dedup > merge_bams > rename_bam
+ruleorder: index_ref > download_reference > dedup > merge_bams
 ### RULES ###
 
 rule get_fastq_pe:
@@ -10,7 +10,7 @@ rule get_fastq_pe:
         outdir = config["fastqDir"] + "{Organism}/{sample}/",
         tmpdir = config['tmp_dir']
     conda: 
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     threads: 
         res_config['get_fastq_pe']['threads']
     log:
@@ -41,7 +41,7 @@ rule download_reference:
     log:
         "logs/dl_reference/{refGenome}.log"
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     shell:
         "datasets download genome accession --exclude-gff3 --exclude-protein --exclude-rna --filename {params.dataset} {wildcards.refGenome} &> {log}"
         "&& 7z x {params.dataset} -aoa -o{output.outdir}"
@@ -50,13 +50,13 @@ rule download_reference:
 
 rule index_ref:
     input:
-        ref = config["refGenomeDir"] + "{refGenome}.fna"
+        ref = ancient(config["refGenomeDir"] + "{refGenome}.fna")
     output: 
         indexes = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"]),
         fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict"
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['index_ref']['mem']
     log:
@@ -64,8 +64,8 @@ rule index_ref:
     shell:
         """
         bwa index {input.ref} 2> {log}
-        samtools faidx {input.ref} --output {output.fai}
-        picard CreateSequenceDictionary REFERENCE={input.ref} OUTPUT={output.dictf} &>> {log}
+        samtools faidx {input.ref} 2>> {log}
+        samtools dict {input.ref} > {output.dictf} 2>> {log}
         """
 rule fastp:
     input:
@@ -75,13 +75,13 @@ rule fastp:
         r2 = temp(config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_2.fastq.gz"),
         summ = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}/{run}.out"
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     threads: 
         res_config['fastp']['threads']
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem']
-    group:
-        "mapping"
+        mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem'],
+        machine_type = "e2-highcpu-16"
+    
     log:
         "logs/{Organism}/fastp/{refGenome}_{sample}_{run}.txt"
     shell:
@@ -96,19 +96,19 @@ rule bwa_map:
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         r1 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_1.fastq.gz",
         r2 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_2.fastq.gz",
-        indices = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"])
+        indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"]))
     output: 
         bam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam")
     params:
         get_read_group
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     threads: 
         res_config['bwa_map']['threads']
-    group:
-        "mapping"
+    
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem']
+        mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem'],
+        machine_type = "e2-highcpu-16"
     log:
         "logs/{Organism}/bwa/{refGenome}_{sample}_{run}.txt"
     benchmark:
@@ -118,51 +118,40 @@ rule bwa_map:
 
 rule merge_bams:
     input: 
-        get_bams
+        lambda wildcards:
+            expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
     output: 
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
-        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
+    
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['merge_bams']['mem']
+        mem_mb = lambda wildcards, attempt: attempt * res_config['merge_bams']['mem'],
+        machine_type = "e2-highcpu-16"
     shell:
-        "samtools merge {output.bam} {input} && samtools index {output.bam}"
+        "samtools merge {output.bam} {input}"
 
-rule rename_bam:
-    """Renames run.bam to sample.bam if there is only 1 run for that sample. Allows skipping of merge_bams if no merge is needed, 
-    which saves time. """
-    input:
-        bam = lambda wildcards: expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['bamDir'] + "preMerge/{{sample}}/{run}.bam", run=samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist())
-    output:
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
-        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
-    conda:
-        "../envs/fastq2bam.yml"
-    resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['merge_bams']['mem']
-    shell:
-        "mv {input.bam} {output.bam}"
-        "samtools index {output.bam}"
 rule dedup:
     input: 
-        bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam",
-        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "postMerge/{sample}.bam.bai"
+        get_bams_for_dedup
     output:
         dedupBam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam",
-        dedupBai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bai",
-        dedupMet = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_dedupMetrics.txt"
+        dedupBai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam.bai",
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['dedup']['mem']
+        mem_mb = lambda wildcards, attempt: attempt * res_config['dedup']['mem'],
+        machine_type = "e2-highcpu-16"
+    group:
+        "mapping"
+    threads:
+        res_config['dedup']['threads']
     log:
         "logs/{Organism}/dedup/{refGenome}_{sample}.txt"
     benchmark:
         "benchmarks/{Organism}/dedup/{refGenome}_{sample}.txt"
     shell:
-        "picard MarkDuplicates I={input[0]} O={output.dedupBam} METRICS_FILE={output.dedupMet} REMOVE_DUPLICATES=false TAGGING_POLICY=All &> {log}\n"
-        "picard BuildBamIndex I={output.dedupBam} &> {log}"
+        "sambamba markdup -t {threads} {input} {output.dedupBam} 2> {log}"
 
 rule bam_sumstats:
     input: 
@@ -171,18 +160,15 @@ rule bam_sumstats:
     output: 
         cov = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_coverage.txt",  
         alnSum = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_AlnSumMets.txt",
-        val = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_validate.txt"
+        #val = config['output'] + "{Organism}/{refGenome}/" + config['sumstatDir'] + "{sample}_validate.txt"
+    
     conda:
-        "../envs/fastq2bam.yml"
+        "../envs/gcp_mapping.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bam_sumstats']['mem'] 
     shell:
-        "samtools coverage --output {output.cov} {input.bam}\n"
-        "picard CollectAlignmentSummaryMetrics I={input.bam} R={input.ref} O={output.alnSum}\n"
-        # The following ValidateSamFile exits with non-zero status when a BAM file contains errors, 
-        # causing snakemake to exit and remove these output files.  I cirumvent this by appending "|| true".
-        # I also ignore "INVALID_TAG_NM" because it isn't used by GATK but causes errors at this step
-        "picard ValidateSamFile I={input.bam} R={input.ref} O={output.val} IGNORE=INVALID_TAG_NM || true"
+        "samtools coverage --output {output.cov} {input.bam}"
+        "samtools flagstat -O tsv > {output.alnSum}"
         
 rule collect_fastp_stats:
     input: 
@@ -196,13 +182,3 @@ rule collect_fastp_stats:
 rule collect_sumstats:
     input:
         unpack(get_sumstats)
-    output:
-        config['output'] + "{Organism}/{refGenome}/" + "bam_sumstats.txt"
-    run:
-        FractionReadsPassFilter, NumFilteredReads = helperFun.collectFastpOutput(input.fastpFiles)
-        PercentDuplicates = helperFun.collectDedupMetrics(input.dedupFiles)
-        PercentHQreads, PercentHQbases = helperFun.collectAlnSumMets(input.alnSumMetsFiles)
-        SeqDepths, CoveredBases = helperFun.collectCoverageMetrics(input.coverageFiles)
-        validateSams = helperFun.collectValidationStatus(input.validateFiles)
-
-        helperFun.printBamSumStats(FractionReadsPassFilter, NumFilteredReads, PercentDuplicates, PercentHQreads, PercentHQbases, SeqDepths, CoveredBases, validateSams, config["output"], wildcards)
