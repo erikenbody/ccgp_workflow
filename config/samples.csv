@@ -1,4 +1,6 @@
 BioSample,LibraryName,refGenome,Run,Organism,BioProject,fq1,fq2
-a,1,a,a,dd,x,data/fastq/a1.fq.gz,data/fastq/a2.fq.gz
-a,2,a,a2,dd,x,data/fastq/a3.fq.gz,data/fastq/a4.fq.gz
-b,1,a,b,dd,x,data/fastq/b1.fq.gz,data/fastq/b2.fq.gz
+M0D059089C,lib_M0D059089C,xgLotScab1.0.p_ctg,42,limpet,NaN,data/fastq/CCGPMC005_M0D059089C_S14_L004_R1_001.fastq.gz,data/fastq/CCGPMC005_M0D059089C_S14_L004_R2_001.fastq.gz
+M0D059091E,lib_M0D059091E,xgLotScab1.0.p_ctg,43,limpet,NaN,data/fastq/CCGPMC005_M0D059091E_S15_L004_R1_001.fastq.gz,data/fastq/CCGPMC005_M0D059091E_S15_L004_R2_001.fastq.gz
+M0D059093G,lib_M0D059093G,xgLotScab1.0.p_ctg,44,limpet,NaN,data/fastq/CCGPMC005_M0D059093G_S13_L004_R1_001.fastq.gz,data/fastq/CCGPMC005_M0D059093G_S13_L004_R2_001.fastq.gz
+M0D059101O,S11_M0D059101O,xgLotScab1.0.p_ctg,66,limpet,NaN,data/fastq/CCGPMC005_M0D059101O_S11_L004_R1_001.fastq.gz,data/fastq/CCGPMC005_M0D059101O_S11_L004_R2_001.fastq.gz
+M0D059103Q,lib_M0D059103Q,xgLotScab1.0.p_ctg,1,limpet,NaN,data/fastq/CCGPMC005_M0D059103Q_S12_L004_R1_001.fastq.gz,data/fastq/CCGPMC005_M0D059103Q_S12_L004_R2_001.fastq.gz

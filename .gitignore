@@ -33,3 +33,7 @@ logs/
 *_dryrun.txt
 results/
 tmp/
+results.bak/
+sentieon-genomics*
+benchmarks/
+ccgp-results/

@@ -16,17 +16,17 @@ rule bam2gvcf:
     output:
         gvcf = config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz",
         gvcf_idx = config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz.tbi",
-        doneFile = touch(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.done")
+        #doneFile = touch(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.done")
     resources:
         #!The -Xmx value the tool is run with should be less than the total amount of physical memory available by at least a few GB
         # subtract that memory here
         mem_mb = lambda wildcards, attempt: attempt * res_config['bam2gvcf']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['bam2gvcf']['mem'] - 512),  # this is the maximum amount given to java
-        machine_type = "e2-custom-4-10240"
+        machine_type = "n2d-standard-32"
     log:
-        "logs/{Organism}/bam2gvcf/{refGenome}_{sample}_{list}.txt"
-    #benchmark:
-        #"benchmarks/{Organism}/bam2gvcf/{refGenome}_{sample}_{list}.txt"
+        "logs/{Organism}/{refGenome}/bam2gvcf/{sample}_{list}.txt"
+    benchmark:
+        "benchmarks/{Organism}/{refGenome}/bam2gvcf/{sample}_{list}.txt"
     params:
         minPrun = config['minP'],
         minDang = config['minD'],
@@ -68,16 +68,16 @@ rule gvcf2DB:
         dbMapFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_mapfile_L{list}"
     output:
         DB = directory(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}"),
-        done = touch(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}.done")
+        #done = touch(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}.done")
     params:
         tmp_dir = config['tmp_dir']
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['gvcf2DB']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['gvcf2DB']['mem'] - 512)  # this is the maximum amount given to java
     log:
-        "logs/{Organism}/gvcf2DB/{refGenome}_{list}.txt"
+        "logs/{Organism}/{refGenome}/gvcf2DB/{list}.txt"
     benchmark:
-        "benchmarks/{Organism}/gvcf2DB/{refGenome}_{list}.txt"
+        "benchmarks/{Organism}/{refGenome}/gvcf2DB/{list}.txt"
     conda:
         "../envs/gcp_calling.yml"
     shell:
@@ -99,7 +99,7 @@ rule DB2vcf:
     input:
         DB = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
-        doneFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}.done"
+        #doneFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}.done"
     output:
         config['output'] + "{Organism}/{refGenome}/" + config["vcfDir_gatk"] + "L{list}.vcf",
     params:
@@ -108,9 +108,9 @@ rule DB2vcf:
         mem_mb = lambda wildcards, attempt: attempt * res_config['DB2vcf']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['DB2vcf']['mem'] - 512)  # this is the maximum amount given to java
     log:
-        "logs/{Organism}/db2vcf/{refGenome}_{list}.txt"
+        "logs/{Organism}/{refGenome}/db2vcf/{list}.txt"
     benchmark:
-        "benchmarks/{Organism}/db2vcf/{refGenome}_{list}.txt"
+        "benchmarks/{Organism}/{refGenome}/db2vcf/{list}.txt"
     conda:
         "../envs/gcp_calling.yml"
     shell:
@@ -135,9 +135,9 @@ rule filterVcfs:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['filterVcfs']['mem']   # this is the overall memory requested
     log:
-        "logs/{Organism}/filterVcfs/{refGenome}_{list}.txt"
+        "logs/{Organism}/{refGenome}/filterVcfs/{list}.txt"
     benchmark:
-        "benchmarks/{Organism}/filterVcfs/{refGenome}_{list}.txt"
+        "benchmarks/{Organism}/{refGenome}/filterVcfs/{list}.txt"
     shell:
         "gatk VariantFiltration "
         "-R {input.ref} "

@@ -77,10 +77,11 @@ rule fastp:
     conda:
         "../envs/gcp_mapping.yml"
     threads: 
-        res_config['fastp']['threads']
+        res_config['fastp']['threads'],
+        
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem'],
-        machine_type = "e2-highcpu-16"
+        machine_type = "n2d-standard-32"
     log:
         "logs/{Organism}/fastp/{refGenome}_{sample}_{run}.txt"
     shell:
@@ -103,10 +104,10 @@ rule bwa_map:
     conda:
         "../envs/gcp_mapping.yml"
     threads: 
-        res_config['bwa_map']['threads']
+        res_config['bwa_map']['threads'],
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem'],
-        machine_type = "e2-highcpu-16"
+        machine_type = "n2d-standard-32"
     log:
         "logs/{Organism}/bwa/{refGenome}_{sample}_{run}.txt"
     benchmark:
@@ -124,7 +125,7 @@ rule merge_bams:
         "../envs/gcp_mapping.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['merge_bams']['mem'],
-        machine_type = "e2-highcpu-16"
+        machine_type = "n2d-standard-32"
     shell:
         "samtools merge {output.bam} {input}"
 
@@ -138,7 +139,7 @@ rule dedup:
         "../envs/gcp_mapping.yml"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['dedup']['mem'],
-        machine_type = "e2-highcpu-16"
+        machine_type = "n2d-standard-32"
     threads:
         res_config['dedup']['threads']
     log:

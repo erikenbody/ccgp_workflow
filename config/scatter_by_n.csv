@@ -1,0 +1,2 @@
+BioSample,LibraryName,refGenome,Run,Organism,BioProject,fq1,fq2
+M0D059891Y,lib_M0D059891Y,xgHalCrac1.NCBI.p_ctg,66,abalonee,NaN,data/fastq/CCGPMC005_M0D059891Y_S16_L004_R1_001.fastq.gz,data/fastq/CCGPMC005_M0D059891Y_S16_L004_R2_001.fastq.gz
