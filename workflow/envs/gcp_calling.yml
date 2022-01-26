@@ -3,4 +3,4 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - gatk4
+  - gatk4==4.1.8.0

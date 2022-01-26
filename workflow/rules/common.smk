@@ -6,10 +6,17 @@ from collections import defaultdict, deque
 from snakemake.exceptions import WorkflowError
 ### INPUT FUNCTIONS ###
 
+def get_tbis_for_list(wildcards):
+    sample_names = samples.BioSample.tolist()
+    return expand(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz.tbi", **wildcards, sample=sample_names)
+
+def get_gvcfs_for_list(wildcards):
+    sample_names = samples.BioSample.tolist()
+    return expand(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz", **wildcards, sample=sample_names)
+
 def get_gvcfs(wildcards):
     sample_names = samples.BioSample.tolist()
     return expand(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}.g.vcf.gz", **wildcards, sample=sample_names)
-
 
 def get_bams_for_dedup(wildcards):
     runs = samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist()

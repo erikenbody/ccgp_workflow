@@ -65,7 +65,9 @@ rule gvcf2DB:
     """
     input:
         l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/" + "list{list}.list",
-        dbMapFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_mapfile_L{list}"
+        dbMapFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_mapfile_L{list}",
+        gvcfs = get_gvcfs_for_list,
+        tbis = get_tbis_for_list,
     output:
         DB = directory(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}"),
         #done = touch(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}.done")
@@ -74,6 +76,8 @@ rule gvcf2DB:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['gvcf2DB']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['gvcf2DB']['mem'] - 512)  # this is the maximum amount given to java
+    group:
+        "db2vcf"
     log:
         "logs/{Organism}/{refGenome}/gvcf2DB/{list}.txt"
     benchmark:
@@ -97,9 +101,12 @@ rule DB2vcf:
     are still scattered.
     """
     input:
-        DB = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}",
+        DB = directory(config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}"),
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         #doneFile = config['output'] + "{Organism}/{refGenome}/" + config['dbDir'] + "DB_L{list}.done"
+        indexes = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"]),
+        fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
+        dictf = config["refGenomeDir"] + "{refGenome}" + ".dict"
     output:
         config['output'] + "{Organism}/{refGenome}/" + config["vcfDir_gatk"] + "L{list}.vcf",
     params:
@@ -107,6 +114,8 @@ rule DB2vcf:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['DB2vcf']['mem'],   # this is the overall memory requested
         reduced = lambda wildcards, attempt: attempt * (res_config['DB2vcf']['mem'] - 512)  # this is the maximum amount given to java
+    group:
+        "db2vcf"
     log:
         "logs/{Organism}/{refGenome}/db2vcf/{list}.txt"
     benchmark:
