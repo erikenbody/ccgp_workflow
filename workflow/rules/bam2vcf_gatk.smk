@@ -136,7 +136,10 @@ rule filterVcfs:
     """
     input:
         vcf = config['output'] + "{Organism}/{refGenome}/" + config["vcfDir_gatk"] + "L{list}.vcf",
-        ref = config["refGenomeDir"] + "{refGenome}.fna"
+        ref = config["refGenomeDir"] + "{refGenome}.fna",
+        indexes = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"]),
+        fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
+        dictf = config["refGenomeDir"] + "{refGenome}" + ".dict"
     output:
         vcf = temp(config['output'] + "{Organism}/{refGenome}/" + config["vcfDir_gatk"] + "filtered_L{list}.vcf")
     conda:
@@ -167,7 +170,10 @@ rule sort_gatherVcfs:
         vcfs = get_gather_vcfs,
         int = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"),
         #l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/"
-        
+        ref = config["refGenomeDir"] + "{refGenome}.fna",
+        indexes = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"]),
+        fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
+        dictf = config["refGenomeDir"] + "{refGenome}" + ".dict"
     output: 
         vcfFinal = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}.final.vcf.gz"
     params:
