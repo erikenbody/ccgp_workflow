@@ -87,7 +87,7 @@ def gather_vcfs_CLI(wildcards):
     """
     Gatk enforces that you have a -I before each input vcf, so this function makes that string
     """
-    vcfs = expand(config['output'] + "{Organism}/{refGenome}/" + config['vcfDir_gatk'] + "filtered_L{index}.vcf", **wildcards, index=range(10))
+    vcfs = expand(workflow.default_remote_prefix + "/" + config['output'] + "{Organism}/{refGenome}/" + config['vcfDir_gatk'] + "filtered_L{index}.vcf", **wildcards, index=range(10))
     #print(vcfs)
     
     out = " ".join(["-I " + vcf for vcf in vcfs])

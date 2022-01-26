@@ -169,7 +169,7 @@ rule sort_gatherVcfs:
     input: 
         vcfs = get_gather_vcfs,
         int = ancient(config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_intervals_fb.bed"),
-        #l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/"
+        l = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "lists/",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         indexes = expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["sa", "pac", "bwt", "ann", "amb"]),
         fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
