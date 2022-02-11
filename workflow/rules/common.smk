@@ -6,6 +6,11 @@ from collections import defaultdict, deque
 from snakemake.exceptions import WorkflowError
 ### INPUT FUNCTIONS ###
 
+def get_gvcf_cmd(wildcards):
+    sample_names = samples.BioSample.tolist()
+    vcfs = expand(workflow.default_remote_prefix + "/" + config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}.g.vcf.gz", **wildcards, sample=sample_names)
+    out = " ".join(["-v " + vcf for vcf in vcfs])
+    return out
 def get_tbis_for_list(wildcards):
     sample_names = samples.BioSample.tolist()
     return expand(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}/" + "L{list}.raw.g.vcf.gz.tbi", **wildcards, sample=sample_names)
@@ -17,6 +22,10 @@ def get_gvcfs_for_list(wildcards):
 def get_gvcfs(wildcards):
     sample_names = samples.BioSample.tolist()
     return expand(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}.g.vcf.gz", **wildcards, sample=sample_names)
+
+def get_tbis(wildcards):
+    sample_names = samples.BioSample.tolist()
+    return expand(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}.g.vcf.gz.tbi", **wildcards, sample=sample_names)
 
 def get_bams_for_dedup(wildcards):
     runs = samples.loc[samples['BioSample'] == wildcards.sample]['Run'].tolist()
@@ -55,9 +64,9 @@ def get_reads(wildcards):
         return {"r1": r1, "r2": r2}
 def get_read_group(wildcards):
     """Denote sample name and library_id in read group."""
-    return r"-R '@RG\tID:{lib}\tSM:{sample}\tPL:ILLUMINA'".format(
+    return r"'@RG\tID:{lib}\tSM:{sample}\tPL:ILLUMINA'".format(
         sample=wildcards.sample,
-        lib=samples.loc[samples['BioSample'] == wildcards.sample]["LibraryName"].tolist()[0]
+        lib=wildcards.sample
     )
 
 def get_sumstats(wildcards):
@@ -87,7 +96,10 @@ def gather_vcfs_CLI(wildcards):
     """
     Gatk enforces that you have a -I before each input vcf, so this function makes that string
     """
-    vcfs = expand(workflow.default_remote_prefix + "/" + config['output'] + "{Organism}/{refGenome}/" + config['vcfDir_gatk'] + "filtered_L{index}.vcf", **wildcards, index=range(10))
+    path = Path(workflow.default_remote_prefix, config['output'], wildcards.Organism,wildcards.refGenome, config['intDir'], "lists/")
+    print(path)
+    lists = range(len(list(path.glob("*.list"))))
+    vcfs = expand(workflow.default_remote_prefix + "/" + config['output'] + "{Organism}/{refGenome}/" + config['vcfDir_gatk'] + "filtered_L{index}.vcf", **wildcards, index=lists)
     #print(vcfs)
     
     out = " ".join(["-I " + vcf for vcf in vcfs])

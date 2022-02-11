@@ -37,3 +37,4 @@ results.bak/
 sentieon-genomics*
 benchmarks/
 ccgp-results/
+bench/*

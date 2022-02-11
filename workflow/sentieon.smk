@@ -19,9 +19,7 @@ include: "rules/common.smk"
 rule all:
     input:
         expand(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}.final.vcf.gz", zip, Organism=ORGANISM, refGenome=REFGENOME)
-        # config['output'] + "limpet/xgLotScab1.0.p_ctg/" + config['bamDir'] + "preMerge/shortM0D059135W/1.bam"
-        #expand(config['output'] + "limpet/xgLotScab1.0.p_ctg/" + config['gvcfDir'] + "{sample}.g.vcf.gz", sample=sample_names),
-        #expand(config['output'] + "limpet/xgLotScab1.0.p_ctg/" + config['gvcfDir'] + "{sample}.g.vcf.gz.tbi", sample=sample_names),
+
 rule fastp:
     input:
         unpack(get_reads)
@@ -33,7 +31,7 @@ rule fastp:
         "envs/gcp_mapping.yml"
     threads: 
         res_config['fastp']['threads'],
-        machine_type = "n2d-standard-32"
+
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem'],
         machine_type = "n2d-standard-32"
@@ -59,8 +57,7 @@ rule map:
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam",
         bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam.bai",
     params:
-        get_read_group,
-        rg = "@RG\tID:group\tSM:sample\tPL:platform"
+        rg = get_read_group,
     conda:
         "envs/sentieon.yml"
     threads: res_config['bwa_map']['threads']
@@ -73,7 +70,7 @@ rule map:
         """
         export MALLOC_CONF=lg_dirty_mult:-1
         export SENTIEON_LICENSE={input.lic}
-        sentieon bwa mem -M -R '@RG\\tID:group\\tSM:sample\\tPL:platform' -t {threads} -K 10000000 {input.ref} {input.r1} {input.r2} | sentieon util sort --bam_compression 1 -r {input.ref} -o {output.bam} -t {threads} --sam2bam -i -
+        sentieon bwa mem -M -R {params.rg} -t {threads} -K 10000000 {input.ref} {input.r1} {input.r2} | sentieon util sort --bam_compression 1 -r {input.ref} -o {output.bam} -t {threads} --sam2bam -i -
         samtools index {output.bam} {output.bai}
         """
 rule dedup:
@@ -119,7 +116,8 @@ rule gvcf:
         "envs/sentieon.yml"
     benchmark:
         "benchmarks/{Organism}/{refGenome}/gvcf/{sample}.txt"
-
+    log:
+        "logs/{Organism}/{refGenome}/bam2gvcf/{sample}.txt"
     shell:
         """
         export SENTIEON_LICENSE={input.lic}
@@ -132,22 +130,26 @@ rule combine_gvcf:
         indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["fai", "sa", "pac", "bwt", "ann", "amb"])),
         dictf = ancient(config["refGenomeDir"] + "{refGenome}" + ".dict"),
         lic = "UCSC_Enbody_eval.lic",
-        gvcfs = get_gvcfs
+        gvcfs = get_gvcfs,
+        tbis = get_tbis
     output:
-        vcf = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz"
+        vcf = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz",
+        tbi = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz.tbi",
+    params:
+        gvcf = get_gvcf_cmd
     threads: 31
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bam2gvcf']['mem'],
         machine_type = "n2d-standard-32"
     conda:
         "envs/sentieon.yml"
-    log: "logs/{Organism}/{refGenome}/combine_gvcf.log"
+    log: "logs/{Organism}/{refGenome}/combine_gvcf.txt"
     benchmark:
         "benchmarks/{Organism}/{refGenome}/combine_gvcf/{Organism}_{refGenome}.final.txt"
     shell:
         """
         export SENTIEON_LICENSE={input.lic}
-        sentieon driver -r {input.ref} -t {threads} --algo GVCFtyper --emit_mode VARIANT {output} {input.gvcfs} 2> {log}
+        sentieon driver -r {input.ref} -t {threads} --algo GVCFtyper --emit_mode VARIANT {output.vcf} {params.gvcf} 2> {log}
         """
 
 rule filterVcfs:
@@ -156,6 +158,7 @@ rule filterVcfs:
     """
     input:
         vcf = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz",
+        tbi = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz.tbi",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["fai", "sa", "pac", "bwt", "ann", "amb"])),
         dictf = ancient(config["refGenomeDir"] + "{refGenome}" + ".dict"),
