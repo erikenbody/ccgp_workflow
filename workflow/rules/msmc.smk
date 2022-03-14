@@ -1,3 +1,5 @@
+localrules: create_msmc_intervals
+
 checkpoint create_msmc_intervals:
     input:
         bamcomplete = config['output'] + "{Organism}/{refGenome}/" + "bam_sumstats.tsv",
@@ -5,6 +7,7 @@ checkpoint create_msmc_intervals:
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
         ref = config["refGenomeDir"] + "{refGenome}.fna"
     output: 
+        directory(config['output'] + "{Organism}/{refGenome}/" + config["intDir"]),
         config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed"
     resources: 
         mem_mb = lambda wildcards, attempt: attempt * res_config['create_intervals']['mem'] 
@@ -17,25 +20,98 @@ rule mappability:
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed"
+        #intdir = config['output'] + "{Organism}/{refGenome}/" + config["intDir"]
     conda:
         "../envs/msmc.yml"
     output: 
         fasta = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "L{list}.fasta",
         mapbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.bed",
-        badbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.map.bed.gz" 
+        idx1 = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir'] + "index_{{list}}/" + "index.{ext}.{ext2}", ext=['ids', 'info', 'txt'], ext2=['concat', 'limits']),
+        idx2 = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir'] + "index_{{list}}/" + "index.lf.{ext2}", ext2=['drp', 'drs', 'drv', 'pst']),
+        idx3 = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir'] + "index_{{list}}/" + "index.lf.{ext}.sbl", ext=['drp', 'drv']),
+        idx4 = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir'] + "index_{{list}}/" + "index.rev.lf.{ext2}", ext2=['drp', 'drs', 'drv', 'pst']),
+        idx5 = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir'] + "index_{{list}}/" + "index.rev.lf.{ext}.sbl", ext=['drp', 'drv']),
+        idx6 = expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir'] + "index_{{list}}/" + "index.sa.{ext}", ext=['ind', 'len', 'val'])
     log:
         "logs/{Organism}/mappability/{refGenome}_{list}.txt"
     params:
-        l = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['intDir'], "list{list}.list"),
         index = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir'], "index_{list}"),
-        bedprefix = os.path.join(workflow.default_remote_prefix, config['output'],  "{Organism}/{refGenome}/", config['msmcDir'] + "L{list}")
+        bedprefix = os.path.join(workflow.default_remote_prefix, config['output'],  "{Organism}/{refGenome}/", config['msmcDir'], "L{list}"),
+        l = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['intDir'], "list{list}.list"),
+        ldir = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['intDir'])
     shell:
         """
-        samtools faidx {input.ref} -r {params.l} > {output.fasta} 2> {log}
-        genmap index -F {output.fasta} -I {params.index} 2>> {log}
-        genmap map -K 150 -E 1 -I {params.index} -O {params.bedprefix} -b -T 1 2>> {log} #using -k 150 to approximate read length
-        awk '{{ if ($5 > 0.33 ) {{ print }} }}' {output.mapbed} 2>> {log} | gzip > {output.badbed} 
+        mkdir -p {params.ldir}
+        gsutil cp {params.l} {params.ldir}
+        samtools faidx {input.ref} -r {params.l} > {output.fasta}
+        rm -r {params.index} && genmap index -F {output.fasta} -I {params.index}
+        genmap map -K 150 -E 1 -I {params.index} -O {params.bedprefix} -b -T 1 #using -k 150 to approximate read length
         """
+
+rule processmapp:
+    input:
+        fasta = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "L{list}.fasta",
+        mapbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.bed",
+    output:
+        badbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.map.bed.gz"
+    conda:
+        "../envs/msmc.yml"
+    log:
+        "logs/{Organism}/mappability/{refGenome}_{list}.txt"
+    shell:
+        """
+        awk '{{ if ($5 > 0.33 ) {{ print }} }}' {input.mapbed} | gzip > {output.badbed} 
+        """
+
+# rule genmap_index:
+#     input:
+#         ref = config["refGenomeDir"] + "{refGenome}.fna",
+#     log:
+#         "logs/{refGenome}/genmap_index.log"
+#     conda:
+#         "../envs/genmap.yml"
+#     resources:
+#         mem_mb = lambda wildcards, attempt: attempt * res_config['genmap']['mem']
+#     params:
+#         os.path.join(workflow.default_remote_prefix, (config['output'] + "{refGenome}/" + "genmap_index"))
+#     output:
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.{ext}.{ext2}", ext=['ids', 'info', 'txt'], ext2=['concat', 'limits']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.lf.{ext2}", ext2=['drp', 'drs', 'drv', 'pst']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.lf.{ext}.sbl", ext=['drp', 'drv']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.rev.lf.{ext2}", ext2=['drp', 'drs', 'drv', 'pst']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.rev.lf.{ext}.sbl", ext=['drp', 'drv']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.sa.{ext}", ext=['ind', 'len', 'val'])
+#     shell:
+        # snakemake creates the output directory before the shell command, but genmap doesnt like this. so we remove the directory first.
+#         "rm -rf {params} && genmap index -F {input.ref} -I {params} &> {log}"
+
+# rule genmap_map:
+#     input:
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.{ext}.{ext2}", ext=['ids', 'info', 'txt'], ext2=['concat', 'limits']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.lf.{ext2}", ext2=['drp', 'drs', 'drv', 'pst']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.lf.{ext}.sbl", ext=['drp', 'drv']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.rev.lf.{ext2}", ext2=['drp', 'drs', 'drv', 'pst']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.rev.lf.{ext}.sbl", ext=['drp', 'drv']),
+#         expand(config['output'] + "{{refGenome}}/" + "genmap_index/" + "index.sa.{ext}", ext=['ind', 'len', 'val'])
+#     log:
+#         "logs/{refGenome}/genmap_map.log"
+#     params:
+#         indir = os.path.join(workflow.default_remote_prefix, (config['output'] + "{refGenome}/" + "genmap_index")),
+#         outdir = os.path.join(workflow.default_remote_prefix, (config['output'] + "{refGenome}/" + "genmap"))
+#     conda:
+#         "../envs/genmap.yml"
+#     resources:
+#         mem_mb = lambda wildcards, attempt: attempt * res_config['genmap']['mem']
+#     threads:
+#         res_config['genmap']['threads']
+#     output:
+#         temp(config['output'] + "{refGenome}/" + "genmap/{refGenome}.genmap.bed")
+#     shell:
+#         """
+#         genmap map -K 150 -E 0 -I {params.index} -O {params.bedprefix} -b -T {threads}  2>> {log} #using -k 150 to approximate read length
+#         awk '{{ if ($5 > 0.33 ) {{ print }} }}' {params.bedprefix}.bed 2>> {log} | gzip > {output.badbed} 
+
+#         """
 
 rule msmc_input:
     """
@@ -125,9 +201,9 @@ rule run_msmc2:
         res_config['run_msmc2']['threads']
     shell:
         """
-        chmod +x {input.msmctools}/msmc2_linux64bit
-        {input.msmctools} -t {threads} -p 1*4+25*2+1*4+1*6 --outFilePrefix {params.prefix2} $(<{input})
-        {input.msmctools} -t {threads} --outFilePrefix {params.prefixD} $(<{input})
+        chmod +x {input.msmctools}
+        {input.msmctools} -t {threads} -p 1*4+25*2+1*4+1*6 --outFilePrefix {params.prefix2} $(<{input.fof_clean})
+        {input.msmctools} -t {threads} --outFilePrefix {params.prefixD} $(<{input.fof_clean})
         """
 
 rule msmc_plots:

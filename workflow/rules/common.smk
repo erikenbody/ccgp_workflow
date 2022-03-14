@@ -75,16 +75,16 @@ def get_reads(wildcards):
         return get_remote_reads(wildcards)
     else:
         row = samples.loc[samples['Run'] == wildcards.run]
-        # if 'fq1' in samples.columns and 'fq2' in samples.columns:
-        #     if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
-        #         r1 = row.fq1.item()
-        #         r2 = row.fq2.item()
-        #         return {"r1": r1, "r2": r2}
-        #     else:
-        #         raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
-        # else:
-        r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_1.fastq.gz",
-        r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_2.fastq.gz"
+        if 'fq1' in samples.columns and 'fq2' in samples.columns:
+            if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
+                r1 = row.fq1.item()
+                r2 = row.fq2.item()
+                return {"r1": r1, "r2": r2}
+            else:
+                raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
+        else:
+            r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_1.fastq.gz",
+            r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_2.fastq.gz"
         return {"r1": r1, "r2": r2}
 
 def get_remote_reads(wildcards):
@@ -272,7 +272,7 @@ def make_intervals_msmc(outputDir, intDir, wildcards, dict_file):
                 print(f"{contig}\t1\t{ln}", file=fh)
         #this is a little ugly because "i" includes the full unfiltered number of scaffolds
         for i, (contig, ln) in enumerate(contigs.items()):
-            if ln > 1000000:
+            if ln > 1:
                 interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
                 with open(interval_list_file, "w") as f:
                     print(f"{contig}:1-{ln}", file=f)
