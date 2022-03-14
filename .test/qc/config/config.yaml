@@ -55,6 +55,7 @@ fastq2bamDir: "fastq2bam/"
 fastqFilterDir: "00_fastqFiltered/"     # new directory created for filtered fastq reads
 bamDir: "01_mappedReads/"               # new directory created for BAM files
 sumstatDir: "02_bamSumstats/"           # new directory created for BAM summary statistics
+msmcDir: "msmc_files/"
 
 # These variables control the output of the GATK4 workflow (please have forward slash follow name!)
 gatkDir: "gatk/"

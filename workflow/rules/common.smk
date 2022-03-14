@@ -75,17 +75,17 @@ def get_reads(wildcards):
         return get_remote_reads(wildcards)
     else:
         row = samples.loc[samples['Run'] == wildcards.run]
-        if 'fq1' in samples.columns and 'fq2' in samples.columns:
-            if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
-                r1 = row.fq1.item()
-                r2 = row.fq2.item()
-                return {"r1": r1, "r2": r2}
-            else:
-                raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
-        else:
-            r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_1.fastq.gz",
-            r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_2.fastq.gz"
-            return {"r1": r1, "r2": r2}
+        # if 'fq1' in samples.columns and 'fq2' in samples.columns:
+        #     if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
+        #         r1 = row.fq1.item()
+        #         r2 = row.fq2.item()
+        #         return {"r1": r1, "r2": r2}
+        #     else:
+        #         raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
+        # else:
+        r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_1.fastq.gz",
+        r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_2.fastq.gz"
+        return {"r1": r1, "r2": r2}
 
 def get_remote_reads(wildcards):
     """Use this for reads on a different remote bucket than the default."""
@@ -253,3 +253,41 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                     for _ in range(len(out)):
                         line = out.popleft()
                         print(line, file=f)
+
+def make_intervals_msmc(outputDir, intDir, wildcards, dict_file):
+    """Creates interval list files for parallelizing haplotypeCaller and friends. Writes one contig/chromosome per list file."""
+    
+    with open(dict_file, "r") as f:  # Read dict file to get contig info
+        contigs = defaultdict()
+        for line in f:
+            if line.startswith("@SQ"):
+                line = line.split("\t")
+                chrom = line[1].split("SN:")[1]
+                ln = int(line[2].split("LN:")[1])
+                contigs[chrom] = ln
+        
+        interval_file = os.path.join(workflow.default_remote_prefix,outputDir,wildcards.Organism,wildcards.refGenome,intDir, f"{wildcards.refGenome}_msmc_intervals_fb.bed")
+        with open(interval_file, "w") as fh:
+            for contig, ln in contigs.items():
+                print(f"{contig}\t1\t{ln}", file=fh)
+        #this is a little ugly because "i" includes the full unfiltered number of scaffolds
+        for i, (contig, ln) in enumerate(contigs.items()):
+            if ln > 1000000:
+                interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
+                with open(interval_list_file, "w") as f:
+                    print(f"{contig}:1-{ln}", file=f)
+
+def get_gather_msmc(wildcards):
+    """
+    Gets msmc formatted files for gathering step. This function gets the interval list indicies from the corresponding
+    genome, then produces the file names for the filtered vcf with list index."""
+    checkpoint_output = checkpoints.create_msmc_intervals.get(**wildcards).output[0]
+    list_dir_search = os.path.join(workflow.default_remote_prefix, workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
+    list_files = glob.glob(list_dir_search)
+    out = []
+    for f in list_files:
+        f = os.path.basename(f)
+        index = re.search("\d+", f).group() # Grab digits from list file name and put in out list
+        msmc = os.path.join(workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['msmcDir'], f"{index}.msmc.input")
+        out.append(msmc)
+    return out

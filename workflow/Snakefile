@@ -15,40 +15,46 @@ if config['remote_reads']:
     GS = GSRemoteProvider()
     GS_READS_PREFIX = config['remote_reads_prefix']
 
-def get_output(refGenome, Organism):
-    indexes = zip(refGenome,Organism)
-    files = list()
-    if not config['test_qc']:
-        for idx in indexes:
-            if species_counts[idx] > 2:
-                files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + "_qc.html")
-            else:
-                files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + ".imiss")
-                files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + ".idepth")
-                files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + "_snpqc.txt")
-        files.append(
-            expand(config['output'] + "{refGenome}/" + "genmap/{refGenome}.sorted_genmap.bg", zip, Organism=ORGANISM, refGenome=REFGENOME),
-        )
-        files.append(
-            expand(config['output'] + "{Organism}/{refGenome}/" + "bam_sumstats.tsv", zip, Organism=ORGANISM, refGenome=REFGENOME),
-        )
-        files.append(
-            expand(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}" + ".bg.gz", zip, Organism=ORGANISM, refGenome=REFGENOME)
-        )
-    else:
-        for idx in indexes:
-            files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + "_qc.html")
-    return files
+# def get_output(refGenome, Organism):
+#     indexes = zip(refGenome,Organism)
+#     files = list()
+#     if not config['test_qc']:
+#         for idx in indexes:
+#             if species_counts[idx] > 2:
+#                 files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + "_qc.html")
+#             else:
+#                 files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + ".imiss")
+#                 files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + ".idepth")
+#                 files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + "_snpqc.txt")
+#         files.append(
+#             expand(config['output'] + "{refGenome}/" + "genmap/{refGenome}.sorted_genmap.bg", zip, Organism=ORGANISM, refGenome=REFGENOME),
+#         )
+#         files.append(
+#             expand(config['output'] + "{Organism}/{refGenome}/" + "bam_sumstats.tsv", zip, Organism=ORGANISM, refGenome=REFGENOME),
+#         )
+#         files.append(
+#             expand(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}" + ".bg.gz", zip, Organism=ORGANISM, refGenome=REFGENOME)
+#         )
+#     else:
+#         for idx in indexes:
+#             files.append(config['output'] + idx[1] + "/" + idx[0] + "/" + config['qcDir'] + idx[1] + "_" + idx[0] + "_qc.html")
+#     return files
+
+# rule all:
+#     input:
+#         get_output(REFGENOME,ORGANISM),
+        
 
 rule all:
     input:
-        get_output(REFGENOME,ORGANISM),
-        
+        ancient(expand(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.pdf", zip, Organism=ORGANISM, refGenome=REFGENOME))
+
 
 include: "rules/common.smk"
 include: "rules/intervals.smk"
-include: "rules/qc.smk"
-include: "rules/callable_sites.smk"
+include: "rules/msmc.smk"
+#include: "rules/qc.smk"
+#include: "rules/callable_sites.smk"
 include: "rules/sumstats.smk"
 if config['sentieon']:
     include: "rules/sentieon.smk"

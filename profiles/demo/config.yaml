@@ -1,0 +1,3 @@
+use-conda: True
+cores: 4
+allowed-rules: ["create_msmc_intervals","mappability","msmc_input","gather_msmc_input","run_msmc2","msmc_plots"]

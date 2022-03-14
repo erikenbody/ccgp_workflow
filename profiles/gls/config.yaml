@@ -3,5 +3,5 @@ google-lifesciences-region : 'us-central1'
 use-conda: True
 jobs: 20
 preemption-default: 3
-default-remote-prefix: 'ccgp-workflow-results'
+default-remote-prefix: 'comparative_demography'
 ignore-incomplete: True

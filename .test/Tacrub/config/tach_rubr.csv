@@ -1,0 +1,2 @@
+BioSample,LibraryName,refGenome,Run,Organism,BioProject,fq1,fq2
+SAMN12253756,Tach_rubi_test,VZRD01000053.1,SRRXXXXXXX,Tachuris rubrigastra,PRJNAXXXXXX,data/local_fastq/Tach_rubi_VZRD01000053.1_R1.fastq.gz,data/local_fastq/Tach_rubi_VZRD01000053.1_R2.fastq.gz
