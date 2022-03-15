@@ -282,12 +282,12 @@ def get_gather_msmc(wildcards):
     Gets msmc formatted files for gathering step. This function gets the interval list indicies from the corresponding
     genome, then produces the file names for the filtered vcf with list index."""
     checkpoint_output = checkpoints.create_msmc_intervals.get(**wildcards).output[0]
-    list_dir_search = os.path.join(workflow.default_remote_prefix, workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
+    list_dir_search = os.path.join(workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
     list_files = glob.glob(list_dir_search)
     out = []
     for f in list_files:
         f = os.path.basename(f)
         index = re.search("\d+", f).group() # Grab digits from list file name and put in out list
-        msmc = os.path.join(workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['msmcDir'], f"{index}.msmc.input")
+        msmc = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['msmcDir'], f"{index}.msmc.input")
         out.append(msmc)
     return out
