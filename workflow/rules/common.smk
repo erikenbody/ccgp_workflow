@@ -271,12 +271,13 @@ def make_intervals_msmc(outputDir, intDir, wildcards, dict_file):
             for contig, ln in contigs.items():
                 print(f"{contig}\t1\t{ln}", file=fh)
         #this is a little ugly because "i" includes the full unfiltered number of scaffolds
-        for i, (contig, ln) in enumerate(contigs.items()):
-            if ln > 1:
-                interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
-                with open(interval_list_file, "w") as f:
-                    print(f"{contig}:1-{ln}", file=f)
-
+        with open(interval_file, "w") as fh:
+            for i, (contig, ln) in enumerate(contigs.items(),1):
+                if ln > 1:
+                    interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
+                    with open(interval_list_file, "w") as f:
+                        print(f"{contig}:1-{ln}", file=f)
+                        print(f"{contig}:1-{ln}", file=fh)
 def get_gather_msmc(wildcards):
     """
     Gets msmc formatted files for gathering step. This function gets the interval list indicies from the corresponding
@@ -291,3 +292,35 @@ def get_gather_msmc(wildcards):
         msmc = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['msmcDir'], f"{index}.msmc.input")
         out.append(msmc)
     return out
+
+def get_msmc_tools(wildcards):
+    files = [
+        "msmctools/bamCaller.py",
+        "msmctools/cgCaller.py",
+        "msmctools/combineCrossCoal.py",
+        "msmctools/generate_multihetsep.py",
+        "msmctools/getStats.d",
+        "msmctools/loop2final.py",
+        "msmctools/makeMappabilityMask.py",
+        "msmctools/ms2multihetsep.py",
+        "msmctools/msmc.wl",
+        "msmctools/msmc2_linux64bit",
+        "msmctools/msmc2ms.py",
+        "msmctools/multihetsep_bootstrap.py",
+        "msmctools/multihetsep_switcherrors.py",
+        "msmctools/plot_utils.py",
+        "msmctools/run_shapeit.sh",
+        "msmctools/utils.py",
+        "msmctools/vcfAllSiteParser.py",
+    ]
+    return files
+
+def get_clean_files(wildcards):
+    checkpoint_output = checkpoints.gather_msmc_input.get(**wildcards).output[0]
+    fof = os.path.join(workflow.default_remote_prefix, config['output'], f"{wildcards.Organism}/{wildcards.refGenome}/", config['msmcDir'] , "msmc_clean.fof")
+    files = []
+    with open(fof, "r") as fh:
+        for line in fh:
+            files.append(line.strip().split('comparative_demography/')[1])
+    print(files)
+    return files
