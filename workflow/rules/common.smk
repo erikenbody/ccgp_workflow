@@ -218,7 +218,7 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                 ln = int(line[2].split("LN:")[1])
                 contigs[chrom] = ln
 
-        interval_file = os.path.join(workflow.default_remote_prefix, outputDir,wildcards.Organism,wildcards.refGenome,intDir, f"{wildcards.refGenome}_intervals_fb.bed")
+        interval_file = os.path.join(workflow.default_remote_prefix, outputDir,wildcards.Organism,wildcards.refGenome,intDir, f"{wildcards.refGenome}_msmc_intervals_fb.bed")
         with open(interval_file, "w") as fh:
             for contig, ln in contigs.items():
                 print(f"{contig}\t1\t{ln}", file=fh)
@@ -230,7 +230,7 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                     print(f"{contig}:1-{ln}", file=f)
 
         else:
-            ln_sum = sum(contigs.values())
+            ln_sum = sum(x for x in contigs.values() if x > 100_000)
             bp_per_interval = ln_sum // int(max_intervals)
             int_file = 0
             running_bp_total = 0
