@@ -1,3 +1,22 @@
+rule get_fastq_pe:
+    output:
+        temp(config["fastqDir"] + "{Organism}/{sample}/{run}_1.fastq.gz"),
+        temp(config["fastqDir"] + "{Organism}/{sample}/{run}_2.fastq.gz")
+    params:
+        outdir = os.path.join(workflow.default_remote_prefix, config["fastqDir"], "{Organism}/{sample}/"),
+        tmpdir = config['tmp_dir'],
+    conda:
+        "../envs/fastq2bam.yml"
+    threads:
+        res_config['get_fastq_pe']['threads']
+    log:
+        "logs/{Organism}/get_fastq/{sample}/{run}.txt"
+    shell:
+        """
+        fasterq-dump {wildcards.run} -O {params.outdir} -e {threads} -t {params.tmpdir}
+        pigz -p {threads} {params.outdir}{wildcards.run}*.fastq
+        """
+
 rule fastp:
     input:
         unpack(get_reads)

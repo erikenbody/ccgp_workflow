@@ -1,26 +1,28 @@
 localrules: create_msmc_intervals, gather_msmc_input
 
-checkpoint create_msmc_intervals:
+rule create_msmc_intervals:
     input:
         bamcomplete = config['output'] + "{Organism}/{refGenome}/" + "bam_sumstats.tsv",
         fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
         ref = config["refGenomeDir"] + "{refGenome}.fna"
-    output: 
-        directory(config['output'] + "{Organism}/{refGenome}/" + config["intDir"]),
-        config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed"
+    output:
+        config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed",
+        expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config["intDir"] + "list{list}.list", list=range(config['maxNumIntervals']))
+
     resources: 
         mem_mb = lambda wildcards, attempt: attempt * res_config['create_intervals']['mem'] 
     run:
-        LISTS = make_intervals_msmc(config["output"], config["intDir"], wildcards, input.dictf)
+        #LISTS = make_intervals_msmc(config["output"], config["intDir"], wildcards, input.dictf)
+        LISTS = make_intervals(config["output"], config["intDir"], wildcards, input.dictf, config['maxNumIntervals'])
 
 rule mappability:
     input:
         fai = config["refGenomeDir"] + "{refGenome}.fna" + ".fai",
         dictf = config["refGenomeDir"] + "{refGenome}" + ".dict",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
-        intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed"
-        #intdir = config['output'] + "{Organism}/{refGenome}/" + config["intDir"]
+        intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed",
+        list_file = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "list{list}.list"
     conda:
         "../envs/msmc.yml"
     output: 
@@ -35,8 +37,7 @@ rule mappability:
         ldir = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['intDir'])
     shell:
         """
-        REGION=$(sed -n '{wildcards.list}p' {input.intervals})
-        samtools faidx {input.ref} $REGION > {output.fasta}
+        samtools faidx {input.ref} -r {input.list_file} > {output.fasta}
         rm -rf {params.index} && genmap index -F {output.fasta} -I {params.index}
         genmap map -K 150 -E 1 -I {params.index} -O {params.bedprefix} -b -T 1 #using -k 150 to approximate read length
         """
@@ -66,7 +67,8 @@ rule msmc_input:
         bai = lambda w: config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + samples['BioSample'].tolist()[0] + config['bam_suffix'] + '.bai', #this failed when I temped the final bam
         badbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.map.bed.gz",
         msmctools = get_msmc_tools,
-        intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed"
+        intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed",
+        list_file = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "list{list}.list"
     output:
         vcf = config['output'] + "{Organism}/{refGenome}/" + config["gvcfDir"]  + "{list}.vcf.gz",
         bed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "{list}.call.bed.gz",
@@ -83,14 +85,11 @@ rule msmc_input:
         SCAFF=$(sed -n '{wildcards.list}p' {input.intervals})
         #DEPTH=$(samtools depth -r $SCAFF {input.bam} | awk '{{sum += $3}} END {{print sum / NR}}')
         DEPTH=2
-        bcftools mpileup -q 20 -Q 20 -C 50 -r $SCAFF -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
+        bcftools mpileup -q 20 -Q 20 -C 50 -R {input.list_file} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
         {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {output.inmsc}
         """
 
-checkpoint gather_msmc_input:
-    """
-    #run the development version of msmc2
-    """
+rule gather_msmc_input:
     input:
         get_gather_msmc
     output: 

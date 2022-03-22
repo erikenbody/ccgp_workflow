@@ -218,14 +218,14 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                 ln = int(line[2].split("LN:")[1])
                 contigs[chrom] = ln
 
-        interval_file = os.path.join(outputDir,wildcards.Organism,wildcards.refGenome,intDir, f"{wildcards.refGenome}_intervals_fb.bed")
+        interval_file = os.path.join(workflow.default_remote_prefix, outputDir,wildcards.Organism,wildcards.refGenome,intDir, f"{wildcards.refGenome}_intervals_fb.bed")
         with open(interval_file, "w") as fh:
             for contig, ln in contigs.items():
                 print(f"{contig}\t1\t{ln}", file=fh)
 
         if len(contigs.values()) <= max_intervals:
             for i, (contig, ln) in enumerate(contigs.items()):
-                interval_list_file = os.path.join(outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
+                interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
                 with open(interval_list_file, "w") as f:
                     print(f"{contig}:1-{ln}", file=f)
 
@@ -237,18 +237,19 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
             out = deque()
 
             for chrom, ln in contigs.items():
-                out.append(f"{chrom}:1-{ln}")
-                running_bp_total += ln
-                if running_bp_total >= bp_per_interval:
-                    interval_file = os.path.join(outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{int_file}.list")
-                    with open(interval_file, "a+") as f:
-                        for _ in range(len(out)):
-                            line = out.popleft()
-                            print(line, file=f)
-                    int_file += 1
-                    running_bp_total = 0
+                if ln > 100_000:
+                    out.append(f"{chrom}:1-{ln}")
+                    running_bp_total += ln
+                    if running_bp_total >= bp_per_interval:
+                        interval_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{int_file}.list")
+                        with open(interval_file, "a+") as f:
+                            for _ in range(len(out)):
+                                line = out.popleft()
+                                print(line, file=f)
+                        int_file += 1
+                        running_bp_total = 0
             if out:
-                interval_file = os.path.join(outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{int_file}.list")
+                interval_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{int_file}.list")
                 with open(interval_file, "a+") as f:
                     for _ in range(len(out)):
                         line = out.popleft()
@@ -282,7 +283,7 @@ def get_gather_msmc(wildcards):
     """
     Gets msmc formatted files for gathering step. This function gets the interval list indicies from the corresponding
     genome, then produces the file names for the filtered vcf with list index."""
-    checkpoint_output = checkpoints.create_msmc_intervals.get(**wildcards).output[0]
+    #checkpoint_output = checkpoints.create_msmc_intervals.get(**wildcards).output[0]
     list_dir_search = os.path.join(workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], "*.list")
     list_files = glob.glob(list_dir_search)
     out = []
@@ -292,6 +293,16 @@ def get_gather_msmc(wildcards):
         msmc = os.path.join(config['output'], wildcards.Organism, wildcards.refGenome, config['msmcDir'], f"{index}.msmc.input")
         out.append(msmc)
     return out
+    # int_file = os.path.join(workflow.default_remote_prefix, config['output'], wildcards.Organism, wildcards.refGenome, config['intDir'], f"{wildcards.refGenome}_msmc_intervals_fb.bed")
+    
+    # with open(int_file, "r") as f:
+    #     indexes = len(f.readlines())
+    
+    # indexes = range(1,indexes)
+    
+    # return expand(config['output'] + wildcards.Organism + "/" + wildcards.refGenome + "/" + config['msmcDir'] + "{index}.msmc.input", index=indexes)
+    
+    
 
 def get_msmc_tools(wildcards):
     files = [
@@ -316,7 +327,7 @@ def get_msmc_tools(wildcards):
     return files
 
 def get_clean_files(wildcards):
-    checkpoint_output = checkpoints.gather_msmc_input.get(**wildcards).output[0]
+    #checkpoint_output = checkpoints.gather_msmc_input.get(**wildcards).output[0]
     fof = os.path.join(workflow.default_remote_prefix, config['output'], f"{wildcards.Organism}/{wildcards.refGenome}/", config['msmcDir'] , "msmc_clean.fof")
     files = []
     with open(fof, "r") as fh:
