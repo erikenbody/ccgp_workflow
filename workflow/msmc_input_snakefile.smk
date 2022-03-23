@@ -22,3 +22,6 @@ rule all:
 
 include: "rules/common.smk"
 include: "rules/msmc.smk"
+include: "rules/intervals.smk"
+include: "rules/sentieon.smk"
+include: "rules/sumstats.smk"

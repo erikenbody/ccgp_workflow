@@ -13,7 +13,7 @@ rule create_msmc_intervals:
     resources: 
         mem_mb = lambda wildcards, attempt: attempt * res_config['create_intervals']['mem'] 
     run:
-        #LISTS = make_intervals_msmc(config["output"], config["intDir"], wildcards, input.dictf)
+        
         LISTS = make_intervals(config["output"], config["intDir"], wildcards, input.dictf, config['maxNumIntervals'])
 
 rule mappability:
@@ -114,7 +114,7 @@ rule run_msmc2:
     #run the development version of msmc2
     """
     input:
-        fof_clean = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc_clean.fof",
+        fof_clean = ancient(config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc_clean.fof"),
         msmctools = get_msmc_tools,
         clean_files = get_clean_files
     output: 
