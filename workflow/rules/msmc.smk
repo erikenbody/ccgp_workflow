@@ -37,7 +37,7 @@ rule mappability:
         ldir = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['intDir'])
     shell:
         """
-        samtools faidx {input.ref} -r {input.list_file} > {output.fasta}
+        bedtools getfasta -fi {input.ref} -bed {input.list_file} -fo {output.fasta}
         rm -rf {params.index} && genmap index -F {output.fasta} -I {params.index}
         genmap map -K 150 -E 1 -I {params.index} -O {params.bedprefix} -b -T 1 #using -k 150 to approximate read length
         """
@@ -75,18 +75,35 @@ rule msmc_input:
         inmsc = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "{list}.msmc.input"
     params:
         bamcaller = os.path.join(workflow.default_remote_prefix, "msmctools/bamCaller.py",),
-        hetsep = os.path.join(workflow.default_remote_prefix, "msmctools/generate_multihetsep.py",)
+        hetsep = os.path.join(workflow.default_remote_prefix, "msmctools/generate_multihetsep.py",),
+        prefix = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "mscmc_input"
     conda:
         "../envs/bcftools.yml"
     shell:
         """
+        set +u
         chmod +x {params.bamcaller}
         chmod +x {params.hetsep}
-        SCAFF=$(sed -n '{wildcards.list}p' {input.intervals})
-        #DEPTH=$(samtools depth -r $SCAFF {input.bam} | awk '{{sum += $3}} END {{print sum / NR}}')
-        DEPTH=2
-        bcftools mpileup -q 20 -Q 20 -C 50 -R {input.list_file} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
-        {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {output.inmsc}
+        #this may be bugged, but awk should be right now
+        DEPTH=$(samtools depth -b {input.list_file} {input.bam} | awk "{{sum += \$3}} END {{print sum / NR}}")
+        echo $DEPTH
+
+        #this was a test that works to make a vcf
+        #bcftools mpileup -q 20 -Q 20 -C 50 -R {input.list_file} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels -O z -o {output.vcf}
+        #echo "chr1 1 10" > {output.bed}
+        #echo "tmp" > {output.inmsc}
+        
+        while read chr start end
+        do
+            bcftools mpileup -q 20 -Q 20 -C 50 -r ${{chr}}:${{start}}-${{end}} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
+            {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {params.prefix}_${{chr}}.input
+
+            if [ -s {params.prefix}_${{chr}}.input ]; then
+                echo {params.prefix}_${{chr}}.input >> {output.inmsc}
+            fi
+
+        done < {input.list_file}
+
         """
 
 rule gather_msmc_input:
@@ -99,14 +116,18 @@ rule gather_msmc_input:
         "../envs/msmc.yml"
     shell:
         """
-        echo {input} > {output.fof}
+        # echo {input} > {output.fof}
 
-        for i in `cat {output.fof}`
-        do
-            if [ -s $i ]; then
-                echo $i >> {output.fof_clean}
-            fi
-        done
+        # for i in `cat {output.fof}`
+        # do
+        #     if [ -s $i ]; then
+        #         echo $i >> {output.fof_clean}
+        #     fi
+        # done
+        
+        echo {input} > {output.fof}
+        cat {input} > {output.fof_clean}
+
         """
 
 rule run_msmc2:

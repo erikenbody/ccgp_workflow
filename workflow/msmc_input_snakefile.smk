@@ -3,7 +3,7 @@ import yaml
 import helperFun
 from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
 
-configfile: "config/config.yaml"
+configfile: "config/config_test.yaml"
 res_config = yaml.safe_load(open("config/resources.yaml"))
 
 helperFun.make_temp_dir()

@@ -29,7 +29,7 @@ rule fastp:
     threads:
         res_config['fastp']['threads']
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * res_config['fastp']['mem']
+        machine_type="n2-standard-4"
     log:
         "logs/{Organism}/fastp/{refGenome}_{sample}_{run}.txt"
     shell:

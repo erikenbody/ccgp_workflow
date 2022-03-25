@@ -1,0 +1,2 @@
+BioSample,LibraryName,refGenome,Run,Organism,BioProject,fq1,fq2
+SAMN12253756,Tach_rubi_test,two_contigs,SRRXXXXXXX,Tachuris rubrigastra,PRJNAXXXXXX,data/fastq/Tach_rubi_two_contigs_R1.fastq.gz,data/fastq/Tach_rubi_two_contigs_R2.fastq.gz

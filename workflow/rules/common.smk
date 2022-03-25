@@ -209,7 +209,7 @@ def get_bedgraphs(wildcards):
 def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
     """Creates interval list files for parallelizing haplotypeCaller and friends. Writes one contig/chromosome per list file."""
     import itertools
-    MIN_CONTIG_LEN = 100_000
+    MIN_CONTIG_LEN = 100
     with open(dict_file, "r") as f:  # Read dict file to get contig info
         contigs = defaultdict()
         for line in f:
@@ -229,7 +229,7 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
             for i, (contig, ln) in enumerate(contigs.items()):
                 interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
                 with open(interval_list_file, "w") as f:
-                    print(f"{contig}:1-{ln}", file=f)
+                    print(f"{contig}\t1\t{ln}", file=f)
 
         else:
             
@@ -251,7 +251,7 @@ def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
                 chroms = result_chroms[k]
                 for chrom in chroms:
                     ln = contigs[chrom]
-                    out.append(f"{chrom}:1-{ln}")
+                    out.append(f"{chrom}\t1\t{ln}")
                 interval_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{k}.list")
                 with open(interval_file, "a+") as f:
                     for line in out:
@@ -280,8 +280,8 @@ def make_intervals_msmc(outputDir, intDir, wildcards, dict_file):
                 if ln > 1:
                     interval_list_file = os.path.join(workflow.default_remote_prefix, outputDir, wildcards.Organism, wildcards.refGenome, intDir, f"list{i}.list")
                     with open(interval_list_file, "w") as f:
-                        print(f"{contig}:1-{ln}", file=f)
-                        print(f"{contig}:1-{ln}", file=fh)
+                        print(f"{contig}\t1\t{ln}", file=f)
+                        print(f"{contig}\t1\t{ln}", file=fh)
 def get_gather_msmc(wildcards):
     """
     Gets msmc formatted files for gathering step. This function gets the interval list indicies from the corresponding
