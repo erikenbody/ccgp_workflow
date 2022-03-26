@@ -57,11 +57,29 @@ rule processmapp:
         awk '{{ if ($5 > 0.33 ) {{ print }} }}' {input.mapbed} | gzip > {output.badbed} 
         """
 
+rule bamdepth:
+    input:
+        bam = lambda w: config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + samples['BioSample'].tolist()[0] + config['bam_suffix'], #this failed when I temped the final bam
+        intervals = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed",
+        list_file = config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "list{list}.list"
+    output:
+        depth = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "bam{list}_depth.txt"
+    conda:
+        "../envs/msmc.yml"
+    shell:
+        """
+        set +u
+        samtools depth -b {input.list_file} {input.bam} > {output.depth}
+        DEPTH=$(awk "{{sum += \$3}} END {{print sum / NR}}" {output.depth})
+        echo $DEPTH
+        """
+
 rule msmc_input:
     """
     bcftools call for variant calling 1 individual 
     """
     input:
+        depth = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "bam{list}_depth.txt",
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         bam = lambda w: config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + samples['BioSample'].tolist()[0] + config['bam_suffix'], #this failed when I temped the final bam
         bai = lambda w: config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + samples['BioSample'].tolist()[0] + config['bam_suffix'] + '.bai', #this failed when I temped the final bam
@@ -76,7 +94,7 @@ rule msmc_input:
     params:
         bamcaller = os.path.join(workflow.default_remote_prefix, "msmctools/bamCaller.py",),
         hetsep = os.path.join(workflow.default_remote_prefix, "msmctools/generate_multihetsep.py",),
-        prefix = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "mscmc_input"
+        prefix = os.path.join(workflow.default_remote_prefix, config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "mscmc_input")
     conda:
         "../envs/bcftools.yml"
     shell:
@@ -84,18 +102,10 @@ rule msmc_input:
         set +u
         chmod +x {params.bamcaller}
         chmod +x {params.hetsep}
-        #this may be bugged, but awk should be right now
-        DEPTH=$(samtools depth -b {input.list_file} {input.bam} | awk "{{sum += \$3}} END {{print sum / NR}}")
-        echo $DEPTH
 
-        #this was a test that works to make a vcf
-        #bcftools mpileup -q 20 -Q 20 -C 50 -R {input.list_file} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels -O z -o {output.vcf}
-        #echo "chr1 1 10" > {output.bed}
-        #echo "tmp" > {output.inmsc}
-        
         while read chr start end
         do
-            bcftools mpileup -q 20 -Q 20 -C 50 -r ${{chr}}:${{start}}-${{end}} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
+            bcftools mpileup -q 20 -Q 20 -C 50 -r ${{chr}}:${{start}}-${{end}} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} 30 {output.bed} | gzip -c > {output.vcf}
             {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {params.prefix}_${{chr}}.input
 
             if [ -s {params.prefix}_${{chr}}.input ]; then
