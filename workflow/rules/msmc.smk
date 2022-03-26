@@ -71,7 +71,7 @@ rule bamdepth:
         set +u
         samtools depth -b {input.list_file} {input.bam} > {output.depth}
         DEPTH=$(awk "{{sum += \$3}} END {{print sum / NR}}" {output.depth})
-        echo $DEPTH
+        >&2 echo $DEPTH
         """
 
 rule msmc_input:
@@ -102,10 +102,15 @@ rule msmc_input:
         set +u
         chmod +x {params.bamcaller}
         chmod +x {params.hetsep}
+        chmod +x workflow/scripts/mean_depth.py
+
+        DEPTH=$(workflow/scripts/mean_depth.py {input.depth})
+        >&2 echo $DEPTH
+
 
         while read chr start end
         do
-            bcftools mpileup -q 20 -Q 20 -C 50 -r ${{chr}}:${{start}}-${{end}} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} 30 {output.bed} | gzip -c > {output.vcf}
+            bcftools mpileup -q 20 -Q 20 -C 50 -r ${{chr}}:${{start}}-${{end}} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
             {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {params.prefix}_${{chr}}.input
 
             if [ -s {params.prefix}_${{chr}}.input ]; then
