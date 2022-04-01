@@ -9,11 +9,9 @@ rule create_msmc_intervals:
     output:
         config['output'] + "{Organism}/{refGenome}/" + config["intDir"] + "{refGenome}_msmc_intervals_fb.bed",
         expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config["intDir"] + "list{list}.list", list=range(config['maxNumIntervals']))
-
     resources: 
         mem_mb = lambda wildcards, attempt: attempt * res_config['create_intervals']['mem'] 
     run:
-        
         LISTS = make_intervals(config["output"], config["intDir"], wildcards, input.dictf, config['maxNumIntervals'])
 
 rule mappability:
@@ -27,7 +25,9 @@ rule mappability:
         "../envs/msmc.yml"
     output: 
         fasta = config['output'] + "{Organism}/{refGenome}/" + config['intDir'] + "L{list}.fasta",
-        mapbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.bed",
+        mapbed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir'] + "L{list}.bed"
+    resources: 
+        mem_mb = lambda wildcards, attempt: attempt * res_config['mappability']['mem']
     log:
         "logs/{Organism}/mappability/{refGenome}_{list}.txt"
     params:
@@ -70,8 +70,8 @@ rule bamdepth:
         """
         set +u
         samtools depth -b {input.list_file} {input.bam} > {output.depth}
-        DEPTH=$(awk "{{sum += \$3}} END {{print sum / NR}}" {output.depth})
-        >&2 echo $DEPTH
+        #DEPTH=$(awk "{{sum += \$3}} END {{print sum / NR}}" {output.depth})
+        #>&2 echo $DEPTH
         """
 
 rule msmc_input:
@@ -90,13 +90,17 @@ rule msmc_input:
     output:
         vcf = config['output'] + "{Organism}/{refGenome}/" + config["gvcfDir"]  + "{list}.vcf.gz",
         bed = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "{list}.call.bed.gz",
-        inmsc = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "{list}.msmc.input"
+        inmsc = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "{list}.msmc.input",
+        mdir = directory(config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "{list}.mscmc_input_files")
     params:
         bamcaller = os.path.join(workflow.default_remote_prefix, "msmctools/bamCaller.py",),
         hetsep = os.path.join(workflow.default_remote_prefix, "msmctools/generate_multihetsep.py",),
-        prefix = os.path.join(workflow.default_remote_prefix, config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "mscmc_input")
+        prefix = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir'], "{list}.mscmc_input_files")
     conda:
         "../envs/bcftools.yml"
+    resources:
+        machine_type="n2-standard",
+        mem_mb = lambda wildcards, attempt: attempt * res_config['msmc_input']['mem']
     shell:
         """
         set +u
@@ -107,14 +111,15 @@ rule msmc_input:
         DEPTH=$(workflow/scripts/mean_depth.py {input.depth})
         >&2 echo $DEPTH
 
+        mkdir -p {params.prefix}
 
         while read chr start end
         do
             bcftools mpileup -q 20 -Q 20 -C 50 -r ${{chr}}:${{start}}-${{end}} -f {input.ref} {input.bam} | bcftools call --ploidy 2 -c -V indels | {params.bamcaller} $DEPTH {output.bed} | gzip -c > {output.vcf}
-            {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {params.prefix}_${{chr}}.input
+            {params.hetsep} --mask={output.bed} --mask={input.badbed} {output.vcf} > {params.prefix}/msmc_input_${{chr}}.input
 
-            if [ -s {params.prefix}_${{chr}}.input ]; then
-                echo {params.prefix}_${{chr}}.input >> {output.inmsc}
+            if [ -s {params.prefix}/msmc_input_${{chr}}.input ]; then
+                echo {params.prefix}/msmc_input_${{chr}}.input >> {output.inmsc}
             fi
 
         done < {input.list_file}
@@ -125,24 +130,13 @@ rule gather_msmc_input:
     input:
         get_gather_msmc
     output: 
-        fof = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc.fof",
+        #fof = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc.fof",
         fof_clean = config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc_clean.fof"
     conda:
         "../envs/msmc.yml"
     shell:
         """
-        # echo {input} > {output.fof}
-
-        # for i in `cat {output.fof}`
-        # do
-        #     if [ -s $i ]; then
-        #         echo $i >> {output.fof_clean}
-        #     fi
-        # done
-        
-        echo {input} > {output.fof}
         cat {input} > {output.fof_clean}
-
         """
 
 rule run_msmc2:
@@ -152,19 +146,23 @@ rule run_msmc2:
     input:
         fof_clean = ancient(config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc_clean.fof"),
         msmctools = get_msmc_tools,
-        clean_files = get_clean_files
+        #clean_files = get_clean_files,
+        mdir = directory(expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir']  + "{list}.mscmc_input_files", list=range(config["maxNumIntervals"])))
     output: 
         mscmc = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.txt",
         mscmcD = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.default.final.txt"
     params:
-        direct = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir']),
+        # direct = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir']),
         prefix2 = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", "{Organism}_{refGenome}_msmc2"),
         prefixD = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", "{Organism}_{refGenome}_msmc2.default"),
-        tool = os.path.join(workflow.default_remote_prefix,"msmctools/msmc2_linux64bit")
+        tool = os.path.join(workflow.default_remote_prefix,"msmctools/msmc2_linux64bit"),
+        #inpath = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir'], "mscmc_input_files")
     conda:
         "../envs/msmc.yml"
-    threads: 
-        1
+    resources: 
+        mem_mb = lambda wildcards, attempt: attempt * res_config['run_msmc2']['mem']
+    threads:
+        res_config['run_msmc2']['threads']
     shell:
         """
         chmod +x {params.tool}

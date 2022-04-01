@@ -4,3 +4,5 @@ use-conda: True
 jobs: 1
 default-remote-prefix: 'comparative_demography'
 ignore-incomplete: True
+default-resources: "machine_type=n2-standard"
+default-resources: "disk_mb=1_000_000"

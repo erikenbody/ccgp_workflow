@@ -4,7 +4,7 @@
 
 # fastq download
 get_fastq_pe:
-    threads: 10
+    threads: 8
     mem: 5000
 # compress fastq
 gzip_fastq:
@@ -93,5 +93,10 @@ admixture:
 ###
 # msmc workflow
 ###
+mappability:
+    mem: 64000
+msmc_input:
+    mem: 64000
 run_msmc2:
-    threads: 50
+    threads: 32
+    mem: 64000

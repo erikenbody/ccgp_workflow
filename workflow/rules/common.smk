@@ -209,7 +209,7 @@ def get_bedgraphs(wildcards):
 def make_intervals(outputDir, intDir, wildcards, dict_file, max_intervals):
     """Creates interval list files for parallelizing haplotypeCaller and friends. Writes one contig/chromosome per list file."""
     import itertools
-    MIN_CONTIG_LEN = 100
+    MIN_CONTIG_LEN = 100_000
     with open(dict_file, "r") as f:  # Read dict file to get contig info
         contigs = defaultdict()
         for line in f:

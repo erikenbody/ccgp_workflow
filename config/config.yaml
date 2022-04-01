@@ -2,12 +2,12 @@
 # Variables you need to change
 ##############################
 
-samples: "config/tach_rubr_two_contigs.csv"            # name of the sample metadata CSV 
+samples: "config/SAMN10096787.csv"            # name of the sample metadata CSV 
 tmp_dir: "tmp/"   # directory path for a temp dir 
 split_by_n: False
 sentieon: True  #set to True if you want to use sentieon, False if you want GATK
 sentieon_lic: "UCSC_Enbody_eval.lic" #set to path of sentieon license
-remote_reads: True # set if you want reads to be on google cloud storage remote
+remote_reads: False # set if you want reads to be on google cloud storage remote
 remote_reads_prefix: "comparative_demography" # set to google bucket name where reads live
 ##############################
 # Variables you *might* need to change
