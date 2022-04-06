@@ -1,5 +1,4 @@
 ruleorder: index_ref > download_reference
-localrules: download_reference, index_ref
 
 rule download_reference:
     output:
