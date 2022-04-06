@@ -74,7 +74,7 @@ def get_reads(wildcards):
     if config['remote_reads']:
         return get_remote_reads(wildcards)
     else:
-        row = samples.loc[samples['Run'] == wildcards.accession]
+        row = samples.loc[samples['Run'] == wildcards.run]
         if 'fq1' in samples.columns and 'fq2' in samples.columns:
             if os.path.exists(row.fq1.item()) and os.path.exists(row.fq2.item()):
                 r1 = row.fq1.item()
@@ -83,8 +83,8 @@ def get_reads(wildcards):
             else:
                 raise WorkflowError(f"fq1 and fq2 specified for {wildcards.sample}, but files were not found.")
         else:
-            r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.accession}_1.fastq.gz",
-            r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.accession}_2.fastq.gz"
+            r1 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_1.fastq.gz",
+            r2 = config["fastqDir"] + f"{wildcards.Organism}/{wildcards.sample}/{wildcards.run}_2.fastq.gz"
         return {"r1": r1, "r2": r2}
 
 def get_remote_reads(wildcards):
