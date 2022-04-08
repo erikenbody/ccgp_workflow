@@ -146,17 +146,14 @@ rule run_msmc2:
     input:
         fof_clean = ancient(config['output'] + "{Organism}/{refGenome}/" + config['msmcDir']  + "msmc_clean.fof"),
         msmctools = get_msmc_tools,
-        #clean_files = get_clean_files,
         mdir = directory(expand(config['output'] + "{{Organism}}/{{refGenome}}/" + config['msmcDir']  + "{list}.mscmc_input_files", list=range(config["maxNumIntervals"])))
     output: 
         mscmc = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.txt",
         mscmcD = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.default.final.txt"
     params:
-        # direct = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir']),
         prefix2 = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", "{Organism}_{refGenome}_msmc2"),
         prefixD = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", "{Organism}_{refGenome}_msmc2.default"),
         tool = os.path.join(workflow.default_remote_prefix,"msmctools/msmc2_linux64bit"),
-        #inpath = os.path.join(workflow.default_remote_prefix, config['output'], "{Organism}/{refGenome}/", config['msmcDir'], "mscmc_input_files")
     conda:
         "../envs/msmc.yml"
     resources: 

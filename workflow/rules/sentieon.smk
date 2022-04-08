@@ -1,44 +1,4 @@
 
-# rule get_fastq_pe:
-#     output:
-#         temp(config["fastqDir"] + "{Organism}/{sample}/{run}_1.fastq.gz"),
-#         temp(config["fastqDir"] + "{Organism}/{sample}/{run}_2.fastq.gz")
-#     params:
-#         outdir = config["fastqDir"] + "{Organism}/{sample}/",
-#         tmpdir = config['tmp_dir'],
-#         sra_url = lambda wildcards: get_ena_url(wildcards)["sra_url"],
-#         fastq_url = lambda wildcards: get_ena_url(wildcards)["fastq_url"]    
-#     conda:
-#         "../envs/fastq2bam.yml"
-#     threads:
-#         res_config['get_fastq_pe']['threads']
-#     log:
-#         "logs/{Organism}/get_fastq/{sample}/{run}.txt"
-#     resources:
-#         mem_mb = lambda wildcards, attempt: attempt * res_config['get_fastq_pe']['mem']
-#     shell:
-#         """
-#         set +e
-
-#         ##attempt to get SRA file from NCIB (prefetch) or ENA (wget)
-#         prefetch {wildcards.run}
-#         prefetchExit=$?
-#         if [[ $prefetchExit -ne 0 ]]
-#         then
-#             wget -O {wildcards.run} {params.sra_url}
-#         fi
-#         ##if this succeeded, we'll have the correct file in our working directory
-#         if [[ -s {wildcards.run} ]]
-#         then
-#             fasterq-dump {wildcards.run} -O {params.outdir} -e {threads} -t {params.tmpdir}
-#             pigz -p {threads} {params.outdir}{wildcards.run}*.fastq
-#         else
-#             wget -P {params.outdir} {params.fastq_url}/{wildcards.run}_1.fastq.gz
-#             wget -P {params.outdir} {params.fastq_url}/{wildcards.run}_2.fastq.gz
-#         fi
-#         rm -rf {wildcards.run}
-#         """
-
 rule get_fastq_pe:
     output:
         # the wildcard name must be accession, pointing to an SRA number
