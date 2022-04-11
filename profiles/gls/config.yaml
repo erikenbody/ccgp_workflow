@@ -2,7 +2,8 @@ google-lifesciences: True
 google-lifesciences-region : 'us-central1'
 use-conda: True
 jobs: 10
-default-remote-prefix: 'comparative_demography'
+default-remote-prefix: 'comparative_demography_nih'
 ignore-incomplete: True
 default-resources: "machine_type=n2-standard"
+preemption-default: 2
 default-resources: "disk_mb=1_000_000"
