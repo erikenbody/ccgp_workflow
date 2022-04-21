@@ -29,10 +29,10 @@ def cleanup(bucket_name: str, org: str, ref: str):
     
     outputname = join("results", org, ref, "cleanup_confirmation.txt")
 
-    while True:
-         with open(outputname, "w") as writer:
-            writer.write("cleanup script ran successfully")
-        bucket.delete_blobs(blob_list)
+    bucket.delete_blobs(blob_list)
+
+    with open(outputname, "w") as writer:
+        writer.write("cleanup script ran successfully")
 
 def main():
     organism = snakemake.input[0].split("/")[2]
