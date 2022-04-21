@@ -31,7 +31,7 @@ def cleanup(bucket_name: str, org: str, ref: str):
 
     bucket.delete_blobs(blob_list)
 
-    with open(outputname, "w") as writer:
+    with open(outputname, "w+") as writer:
         writer.write("cleanup script ran successfully")
 
 def main():
