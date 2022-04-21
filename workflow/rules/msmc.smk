@@ -188,6 +188,4 @@ rule cleanup:
     output:
         cleanup = config['output'] + "{Organism}/{refGenome}/" + "cleanup_confirmation.txt"
     script:
-        """
-        ../scripts/gcloud_cleanup.py
-        """
+        "../scripts/gcloud_cleanup.py"
