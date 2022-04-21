@@ -26,17 +26,13 @@ def cleanup(bucket_name: str, org: str, ref: str):
         for blob in blobs:
             print(f"Would delete file: {blob}")
             blob_list.append(blob)
+    
+    outputname = join("results", org, ref, "cleanup_confirmation.txt")
 
     while True:
-        cont = input("Sure you want to delete listed files? y/n: ").lower()
-        if cont == "y":
-            bucket.delete_blobs(blob_list)
-            break
-        elif cont == "n":
-            sys.exit(1)
-        else:
-            cont = input("Sure you want to delete listed files? y/n: ").lower()
-
+         with open(outputname, "w") as writer:
+            writer.write("cleanup script ran successfully")
+        bucket.delete_blobs(blob_list)
 
 def main():
     organism = snakemake.input[0].split("/")[2]

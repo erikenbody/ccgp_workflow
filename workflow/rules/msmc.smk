@@ -179,3 +179,15 @@ rule msmc_plots:
         "../envs/msmc.yml"
     script:
         "../scripts/plot_msmc.R"
+
+##dont think this will cleanup bucket
+rule cleanup:
+    input:
+        mscmcPlot = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.pdf",
+        mscmc = config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.txt"
+    output:
+        cleanup = config['output'] + "{Organism}/{refGenome}/" + "cleanup_confirmation.txt"
+    script:
+        """
+        ../scripts/gcloud_cleanup.py
+        """

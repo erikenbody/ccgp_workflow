@@ -17,8 +17,8 @@ if config['remote_reads']:
 
 rule all:
     input:
-        ancient(expand(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.pdf", zip, Organism=ORGANISM, refGenome=REFGENOME))
-
+        ancient(expand(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_msmc2.final.pdf", zip, Organism=ORGANISM, refGenome=REFGENOME)),
+        ancient(expand(config['output'] + "{Organism}/{refGenome}/" + "cleanup_confirmation.txt", zip, Organism=ORGANISM, refGenome=REFGENOME))
 
 include: "rules/common.smk"
 include: "rules/msmc.smk"
