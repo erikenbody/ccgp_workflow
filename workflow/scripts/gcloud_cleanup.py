@@ -27,7 +27,7 @@ def cleanup(bucket_name: str, org: str, ref: str):
             print(f"Would delete file: {blob}")
             blob_list.append(blob)
     
-    outputname = join(bucket, "results", org, ref, "cleanup_confirmation.txt")
+    outputname = join(bucket_name, "results", org, ref, "cleanup_confirmation.txt")
 
     bucket.delete_blobs(blob_list)
 
