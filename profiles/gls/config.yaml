@@ -5,5 +5,5 @@ jobs: 10
 default-remote-prefix: 'comparative_demography_nih'
 ignore-incomplete: True
 default-resources: "machine_type=n2-standard"
-preemption-default: 2
+preemption-default: 4
 default-resources: "disk_mb=1_000_000"
