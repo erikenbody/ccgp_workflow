@@ -41,18 +41,16 @@ rule map:
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         r1 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_1.fastq.gz",
         r2 = config['output'] + "{Organism}/{refGenome}/" + config['fastqFilterDir'] + "{sample}/{run}_2.fastq.gz",
-        indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["fai", "sa", "pac", "bwt", "ann", "amb"])),
-        lic = ancient(config['sentieon_lic'])
+        indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["fai", "sa", "pac", "bwt", "ann", "amb"]))
     output: 
         bam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam"),
         bai = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "preMerge/{sample}/{run}.bam.bai"),
     params:
         rg = get_read_group_sentieon,
+        lic = config['sentieon_lic']
     conda:
         "../envs/sentieon.yml"
     threads: res_config['bwa_map']['threads']
-    log:
-        "logs/{Organism}/{refGenome}/bwa/{sample}_{run}.txt"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bwa_map']['mem'],
         machine_type = "n2d-standard-32"
@@ -61,9 +59,9 @@ rule map:
     shell:
         """
         export MALLOC_CONF=lg_dirty_mult:-1
-        export SENTIEON_LICENSE={input.lic}
-        sentieon bwa mem -M -R {params.rg} -t {threads} -K 10000000 {input.ref} {input.r1} {input.r2} 2>{log} | sentieon util sort --bam_compression 1 -r {input.ref} -o {output.bam} -t {threads} --sam2bam -i - 2>>{log}
-        samtools index {output.bam} {output.bai} 2>>{log}
+        export SENTIEON_LICENSE={params.lic}
+        sentieon bwa mem -M -R {params.rg} -t {threads} -K 10000000 {input.ref} {input.r1} {input.r2} | sentieon util sort --bam_compression 1 -r {input.ref} -o {output.bam} -t {threads} --sam2bam -i -
+        samtools index {output.bam} {output.bai}
         """
 
 rule merge_bams:
@@ -83,8 +81,7 @@ rule merge_bams:
 rule dedup:
     input:
         bam = get_bams_for_dedup,
-        bai = get_bai_for_dedup,
-        lic = ancient(config['sentieon_lic'])
+        bai = get_bai_for_dedup
     output:
         dedupBam = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam"),
         dedupBai = temp(config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam.bai"),
@@ -97,9 +94,11 @@ rule dedup:
         machine_type = "n2d-standard-32"
     benchmark:
         "benchmarks/{Organism}/{refGenome}/dedup/{sample}.txt"
+    params:
+        lic = config['sentieon_lic']
     shell:
         """
-        export SENTIEON_LICENSE={input.lic}
+        export SENTIEON_LICENSE={params.lic}
         sentieon driver -t {threads} -i {input.bam} --algo LocusCollector --fun score_info score.txt
         sentieon driver -t {threads} -i {input.bam} --algo Dedup --rmdup --score_info score.txt --metrics dedup_metrics.txt  --bam_compression 1 {output.dedupBam}
         """
@@ -110,8 +109,7 @@ rule gvcf:
         indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["fai", "sa", "pac", "bwt", "ann", "amb"])),
         dictf = ancient(config["refGenomeDir"] + "{refGenome}" + ".dict"),
         bam = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam",
-        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam.bai",
-        lic = ancient(config['sentieon_lic'])
+        bai = config['output'] + "{Organism}/{refGenome}/" + config['bamDir'] + "{sample}" + "_final.bam.bai"
     output:
         gvcf = temp(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}.g.vcf.gz"),
         gvcf_idx = temp(config['output'] + "{Organism}/{refGenome}/" + config['gvcfDir'] + "{sample}.g.vcf.gz.tbi"),
@@ -125,9 +123,11 @@ rule gvcf:
         "benchmarks/{Organism}/{refGenome}/gvcf/{sample}.txt"
     log:
         "logs/{Organism}/{refGenome}/bam2gvcf/{sample}.txt"
+    params:
+        lic = config['sentieon_lic']
     shell:
         """
-        export SENTIEON_LICENSE={input.lic}
+        export SENTIEON_LICENSE={params.lic}
         sentieon driver -r {input.ref} -t {threads} -i {input.bam} --algo Haplotyper --genotype_model multinomial --emit_mode gvcf --emit_conf 30 --call_conf 30 {output.gvcf} 2> {log}
         """
 
@@ -136,14 +136,14 @@ rule combine_gvcf:
         ref = config["refGenomeDir"] + "{refGenome}.fna",
         indices = ancient(expand(config["refGenomeDir"] + "{{refGenome}}.fna.{ext}", ext=["fai", "sa", "pac", "bwt", "ann", "amb"])),
         dictf = ancient(config["refGenomeDir"] + "{refGenome}" + ".dict"),
-        lic = ancient(config['sentieon_lic']),
         gvcfs = get_gvcfs,
         tbis = get_tbis
     output:
         vcf = temp(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz"),
         tbi = temp(config['output'] + "{Organism}/{refGenome}/" + "{Organism}_{refGenome}_prefilter.vcf.gz.tbi"),
     params:
-        gvcf = get_gvcf_cmd
+        gvcf = get_gvcf_cmd,
+        lic = config['sentieon_lic']
     threads: 31
     resources:
         mem_mb = lambda wildcards, attempt: attempt * res_config['bam2gvcf']['mem'],
@@ -156,7 +156,7 @@ rule combine_gvcf:
         "benchmarks/{Organism}/{refGenome}/combine_gvcf/{Organism}_{refGenome}.final.txt"
     shell:
         """
-        export SENTIEON_LICENSE={input.lic}
+        export SENTIEON_LICENSE={params.lic}
         sentieon driver -r {input.ref} -t {threads} --algo GVCFtyper --emit_mode VARIANT {output.vcf} {params.gvcf} 2> {log}
         """
 
